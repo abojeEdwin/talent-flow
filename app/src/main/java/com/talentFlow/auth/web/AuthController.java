@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,6 +42,12 @@ public class AuthController {
     @PostMapping("/verify-email")
     public ResponseEntity<ApiMessageResponse> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
         authService.verifyEmail(request.token());
+        return ResponseEntity.ok(new ApiMessageResponse("Email verified successfully"));
+    }
+
+    @GetMapping("/verify-email/confirm")
+    public ResponseEntity<ApiMessageResponse> verifyEmailFromLink(@RequestParam("token") String token) {
+        authService.verifyEmail(token);
         return ResponseEntity.ok(new ApiMessageResponse("Email verified successfully"));
     }
 

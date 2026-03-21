@@ -1,5 +1,3 @@
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
 CREATE TABLE users (
     id UUID PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
@@ -44,6 +42,6 @@ CREATE TABLE verification_tokens (
 
 INSERT INTO roles (id, name, description, created_at, updated_at)
 VALUES
-    (gen_random_uuid(), 'ADMIN', 'Platform administrator', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    (gen_random_uuid(), 'MENTOR', 'Mentor or instructor role', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    (gen_random_uuid(), 'INTERN', 'Default learner role', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+    ('00000000-0000-0000-0000-000000000001', 'ADMIN', 'Platform administrator', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('00000000-0000-0000-0000-000000000002', 'MENTOR', 'Mentor or instructor role', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('00000000-0000-0000-0000-000000000003', 'INTERN', 'Default learner role', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
