@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: talent-flow
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/talent_flow}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  security:
+    verification-token-expiry-hours: 24
+    session-cookie-secure: false
+
+logging:
+  level:
+    org.springframework.security: INFO
