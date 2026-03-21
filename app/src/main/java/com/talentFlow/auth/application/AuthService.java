@@ -5,6 +5,7 @@ import com.talentFlow.auth.domain.User;
 import com.talentFlow.auth.domain.VerificationToken;
 import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.auth.domain.enums.UserStatus;
+import com.talentFlow.auth.infrastructure.mail.AuthMailService;
 import com.talentFlow.auth.infrastructure.repository.RoleRepository;
 import com.talentFlow.auth.infrastructure.repository.UserRepository;
 import com.talentFlow.auth.infrastructure.repository.VerificationTokenRepository;
@@ -41,11 +42,15 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final VerificationTokenRepository verificationTokenRepository;
+    private final AuthMailService authMailService;
     private final AuthenticationManager authenticationManager;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @Value("${app.security.verification-token-expiry-hours:24}")
     private long verificationTokenExpiryHours;
+
+    @Value("${app.security.verification-token-frontend-url}")
+    private String verificationTokenFrontendUrl;
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -75,10 +80,16 @@ public class AuthService {
         token.setExpiresAt(LocalDateTime.now().plusHours(verificationTokenExpiryHours));
         verificationTokenRepository.save(token);
 
+        String verificationLink = verificationTokenFrontendUrl + "?token=" + token.getToken();
+        authMailService.sendVerificationEmail(
+                savedUser.getEmail(),
+                savedUser.getFirstName(),
+                verificationLink
+        );
+
         return new RegisterResponse(
                 savedUser.getId(),
                 savedUser.getEmail(),
-                token.getToken(),
                 "User registered successfully. Verify the email before login."
         );
     }
