@@ -6,6 +6,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Set;
 import java.util.UUID;
@@ -17,13 +18,22 @@ public class UserPrincipal implements UserDetails {
     private final String email;
     private final String passwordHash;
     private final boolean enabled;
+    private final boolean accountNonLocked;
     private final Collection<? extends GrantedAuthority> authorities;
 
-    public UserPrincipal(UUID id, String email, String passwordHash, boolean enabled, Collection<? extends GrantedAuthority> authorities) {
+    public UserPrincipal(
+            UUID id,
+            String email,
+            String passwordHash,
+            boolean enabled,
+            boolean accountNonLocked,
+            Collection<? extends GrantedAuthority> authorities
+    ) {
         this.id = id;
         this.email = email;
         this.passwordHash = passwordHash;
         this.enabled = enabled;
+        this.accountNonLocked = accountNonLocked;
         this.authorities = authorities;
     }
 
@@ -32,11 +42,16 @@ public class UserPrincipal implements UserDetails {
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName().name()))
                 .collect(Collectors.toSet());
 
+        boolean enabled = user.isEmailVerified() && user.getStatus() == UserStatus.ACTIVE;
+        boolean accountNonLocked = user.getStatus() != UserStatus.LOCKED
+                && (user.getLockedUntil() == null || user.getLockedUntil().isBefore(LocalDateTime.now()));
+
         return new UserPrincipal(
                 user.getId(),
                 user.getEmail(),
                 user.getPasswordHash(),
-                user.getStatus() != UserStatus.DISABLED,
+                enabled,
+                accountNonLocked,
                 authorities
         );
     }
@@ -67,7 +82,7 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return accountNonLocked;
     }
 
     @Override
