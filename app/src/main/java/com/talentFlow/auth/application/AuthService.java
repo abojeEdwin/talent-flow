@@ -19,6 +19,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
@@ -94,10 +96,6 @@ public class AuthService {
             User user = userRepository.findByEmailIgnoreCase(request.email().trim().toLowerCase())
                     .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
 
-            if (!user.isEmailVerified() || user.getStatus() != UserStatus.ACTIVE) {
-                throw new ApiException(HttpStatus.FORBIDDEN, "Account is not active");
-            }
-
             SecurityContext context = SecurityContextHolder.createEmptyContext();
             context.setAuthentication(authentication);
             SecurityContextHolder.setContext(context);
@@ -112,6 +110,10 @@ public class AuthService {
             return toAuthResponse(userRepository.save(user));
         } catch (BadCredentialsException exception) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        } catch (DisabledException exception) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Account is not active");
+        } catch (LockedException exception) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Account is locked");
         }
     }
 
