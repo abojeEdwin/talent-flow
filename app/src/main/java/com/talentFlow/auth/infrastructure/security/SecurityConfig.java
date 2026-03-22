@@ -36,6 +36,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/verify-email",
                                 "/api/v1/auth/verify-email/confirm",
+                                "/api/v1/auth/reset-password",
                                 "/actuator/health"
                         ).permitAll()
                         .anyRequest().authenticated()

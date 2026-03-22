@@ -5,6 +5,7 @@ import com.talentFlow.auth.web.dto.AuthResponse;
 import com.talentFlow.auth.web.dto.LoginRequest;
 import com.talentFlow.auth.web.dto.RegisterRequest;
 import com.talentFlow.auth.web.dto.RegisterResponse;
+import com.talentFlow.auth.web.dto.ResetPasswordRequest;
 import com.talentFlow.auth.web.dto.VerifyEmailRequest;
 import com.talentFlow.common.response.ApiMessageResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,5 +61,11 @@ public class AuthController {
     public ResponseEntity<ApiMessageResponse> logout(HttpServletRequest request) {
         authService.logout(request);
         return ResponseEntity.ok(new ApiMessageResponse("Logged out successfully"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiMessageResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.token(), request.newPassword());
+        return ResponseEntity.ok(new ApiMessageResponse("Password reset successfully"));
     }
 }

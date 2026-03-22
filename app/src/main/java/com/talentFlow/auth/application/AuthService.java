@@ -2,12 +2,14 @@ package com.talentFlow.auth.application;
 
 import com.talentFlow.auth.domain.Role;
 import com.talentFlow.auth.domain.User;
+import com.talentFlow.auth.domain.PasswordResetToken;
 import com.talentFlow.auth.domain.VerificationToken;
 import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.auth.domain.enums.UserStatus;
 import com.talentFlow.auth.infrastructure.mail.AuthMailService;
 import com.talentFlow.auth.infrastructure.repository.RoleRepository;
 import com.talentFlow.auth.infrastructure.repository.UserRepository;
+import com.talentFlow.auth.infrastructure.repository.PasswordResetTokenRepository;
 import com.talentFlow.auth.infrastructure.repository.VerificationTokenRepository;
 import com.talentFlow.auth.web.dto.AuthResponse;
 import com.talentFlow.auth.web.dto.LoginRequest;
@@ -42,6 +44,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final VerificationTokenRepository verificationTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final AuthMailService authMailService;
     private final AuthenticationManager authenticationManager;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
@@ -51,6 +54,9 @@ public class AuthService {
 
     @Value("${app.security.verification-token-frontend-url}")
     private String verificationTokenFrontendUrl;
+
+    @Value("${app.security.password-reset-expiry-hours:2}")
+    private long passwordResetExpiryHours;
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -166,6 +172,38 @@ public class AuthService {
         if (request.getSession(false) != null) {
             request.getSession(false).invalidate();
         }
+    }
+
+    @Transactional
+    public void resetPassword(String tokenValue, String newPassword) {
+        PasswordResetToken token = passwordResetTokenRepository.findByToken(tokenValue)
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Invalid password reset token"));
+
+        if (token.getUsedAt() != null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Password reset token has already been used");
+        }
+        if (token.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Password reset token has expired");
+        }
+
+        User user = token.getUser();
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+
+        token.setUsedAt(LocalDateTime.now());
+        userRepository.save(user);
+        passwordResetTokenRepository.save(token);
+    }
+
+    @Transactional
+    public String generatePasswordResetToken(User user) {
+        passwordResetTokenRepository.deleteByUser(user);
+        PasswordResetToken token = new PasswordResetToken();
+        token.setUser(user);
+        token.setToken(UUID.randomUUID().toString());
+        token.setExpiresAt(LocalDateTime.now().plusHours(passwordResetExpiryHours));
+        return passwordResetTokenRepository.save(token).getToken();
     }
 
     private AuthResponse toAuthResponse(User user) {
