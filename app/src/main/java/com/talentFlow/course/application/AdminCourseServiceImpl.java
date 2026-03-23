@@ -23,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -102,11 +103,11 @@ public class AdminCourseServiceImpl implements AdminCourseService {
         courseInstructorRepository.deleteByCourse(course);
         for (UUID instructorId : allInstructorIds) {
             User instructor = getMentorUser(instructorId);
-            CourseInstructor ci = new CourseInstructor();
-            ci.setCourse(course);
-            ci.setInstructorUser(instructor);
-            ci.setPrimary(instructor.getId().equals(primaryInstructor.getId()));
-            courseInstructorRepository.save(ci);
+            CourseInstructor courseInstructor = new CourseInstructor();
+            courseInstructor.setCourse(course);
+            courseInstructor.setInstructorUser(instructor);
+            courseInstructor.setPrimary(instructor.getId().equals(primaryInstructor.getId()));
+            courseInstructorRepository.save(courseInstructor);
         }
 
         audit(actor, "COURSE_INSTRUCTORS_ASSIGNED", "COURSE", course.getId(),
@@ -158,6 +159,7 @@ public class AdminCourseServiceImpl implements AdminCourseService {
 
         enrollment.setStatus(EnrollmentStatus.REVOKED);
         enrollment.setRevokedAt(LocalDateTime.now());
+        enrollment.setCompletedAt(null);
         courseEnrollmentRepository.save(enrollment);
 
         audit(actor, "COURSE_ENROLLMENT_REVOKED", "COURSE", course.getId(),
@@ -171,11 +173,13 @@ public class AdminCourseServiceImpl implements AdminCourseService {
             enrollment.setCourse(course);
             enrollment.setUser(user);
             enrollment.setEnrolledAt(LocalDateTime.now());
+            enrollment.setProgressPct(BigDecimal.ZERO);
         }
         if (enrollment.getStatus() == EnrollmentStatus.ENROLLED) {
             return 0;
         }
         enrollment.setStatus(EnrollmentStatus.ENROLLED);
+        enrollment.setCompletedAt(null);
         enrollment.setRevokedAt(null);
         courseEnrollmentRepository.save(enrollment);
         return 1;

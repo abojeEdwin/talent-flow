@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Getter
@@ -36,6 +37,11 @@ public class CourseEnrollment extends BaseEntity {
 
     @Column(nullable = false)
     private LocalDateTime enrolledAt;
+
+    @Column(nullable = false, precision = 5, scale = 2)
+    private BigDecimal progressPct = BigDecimal.ZERO;
+
+    private LocalDateTime completedAt;
 
     private LocalDateTime revokedAt;
 }

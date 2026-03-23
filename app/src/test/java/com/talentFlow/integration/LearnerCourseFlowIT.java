@@ -85,11 +85,11 @@ class LearnerCourseFlowIT extends BaseIntegrationTest {
     @Test
     @WithMockUser(username = "learner@test.com", roles = {"INTERN"})
     void learnerCanBrowseAndEnrollPublishedCourse() throws Exception {
-        mockMvc.perform(get("/api/v1/learner/courses"))
+        mockMvc.perform(get("/api/v1/courses"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].title").value("Java Fundamentals"));
 
-        mockMvc.perform(post("/api/v1/learner/courses/" + publishedCourse.getId() + "/enroll"))
+        mockMvc.perform(post("/api/v1/courses/" + publishedCourse.getId() + "/enroll"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(publishedCourse.getId().toString()));
 

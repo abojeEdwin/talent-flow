@@ -3,50 +3,32 @@ package com.talentFlow.learner.web;
 import com.talentFlow.auth.domain.User;
 import com.talentFlow.auth.infrastructure.repository.UserRepository;
 import com.talentFlow.common.exception.ApiException;
-import com.talentFlow.course.web.dto.CourseDetailResponse;
-import com.talentFlow.course.web.dto.CourseResponse;
+import com.talentFlow.course.web.dto.LessonCompletionResponse;
 import com.talentFlow.learner.application.LearnerCourseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping({"/api/v1/learner/courses", "/api/v1/courses"})
+@RequestMapping("/api/v1/lessons")
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('INTERN','MENTOR','ADMIN')")
-public class LearnerCourseController {
+public class LearnerLessonController {
 
     private final LearnerCourseService learnerCourseService;
     private final UserRepository userRepository;
 
-    @GetMapping
-    public List<CourseResponse> browsePublishedCourses() {
-        return learnerCourseService.browsePublishedCourses();
-    }
-
-    @PostMapping("/{courseId}/enroll")
-    public CourseResponse enroll(@PathVariable UUID courseId, Authentication authentication) {
-        return learnerCourseService.enrollInCourse(courseId, getActor(authentication));
-    }
-
-    @GetMapping("/{courseId}")
-    public CourseDetailResponse courseDetail(@PathVariable UUID courseId, Authentication authentication) {
-        return learnerCourseService.getCourseDetail(courseId, getActor(authentication));
-    }
-
-    @GetMapping("/my")
-    public List<CourseResponse> myEnrollments(Authentication authentication) {
-        return learnerCourseService.myEnrollments(getActor(authentication));
+    @PostMapping("/{lessonId}/complete")
+    public LessonCompletionResponse completeLesson(@PathVariable UUID lessonId, Authentication authentication) {
+        return learnerCourseService.completeLesson(lessonId, getActor(authentication));
     }
 
     private User getActor(Authentication authentication) {
