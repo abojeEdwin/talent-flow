@@ -8,6 +8,8 @@ public record CourseDetailResponse(
         UUID id,
         String title,
         String description,
+        String coverImageUrl,
+        String introVideoUrl,
         String status,
         BigDecimal progressPct,
         List<CourseModuleResponse> modules

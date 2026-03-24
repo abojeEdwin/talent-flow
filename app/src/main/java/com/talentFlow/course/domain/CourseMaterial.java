@@ -3,6 +3,7 @@ package com.talentFlow.course.domain;
 import com.talentFlow.auth.domain.User;
 import com.talentFlow.common.BaseEntity;
 import com.talentFlow.course.domain.enums.MaterialType;
+import com.talentFlow.course.domain.enums.MaterialUploadStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -31,8 +32,12 @@ public class CourseMaterial extends BaseEntity {
     @Column(nullable = false, length = 50)
     private MaterialType materialType;
 
-    @Column(nullable = false, length = 500)
+    @Column(length = 500)
     private String contentUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private MaterialUploadStatus uploadStatus = MaterialUploadStatus.COMPLETED;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "uploaded_by_user_id", nullable = false)

@@ -12,9 +12,11 @@ import com.talentFlow.course.web.dto.CreateCourseRequest;
 import com.talentFlow.course.web.dto.LearnerProgressResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
 import com.talentFlow.course.web.dto.UploadMaterialRequest;
+import com.talentFlow.course.domain.enums.MaterialType;
 import com.talentFlow.instructor.application.InstructorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -23,8 +25,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -38,9 +43,20 @@ public class InstructorController {
     private final InstructorService instructorService;
     private final UserRepository userRepository;
 
-    @PostMapping("/courses")
+    @PostMapping(value = "/courses", consumes = MediaType.APPLICATION_JSON_VALUE)
     public CourseResponse createCourse(@Valid @RequestBody CreateCourseRequest request, Authentication authentication) {
         return instructorService.createCourse(request, getActor(authentication));
+    }
+
+    @PostMapping(value = "/courses", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public CourseResponse createCourseWithMedia(
+            @RequestParam("title") String title,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
+            @RequestPart(value = "introVideo", required = false) MultipartFile introVideo,
+            Authentication authentication
+    ) {
+        return instructorService.createCourseWithMedia(title, description, coverImage, introVideo, getActor(authentication));
     }
 
     @GetMapping("/courses")
@@ -48,13 +64,24 @@ public class InstructorController {
         return instructorService.listMyCourses(getActor(authentication));
     }
 
-    @PostMapping("/courses/{courseId}/materials")
+    @PostMapping(value = "/courses/{courseId}/materials", consumes = MediaType.APPLICATION_JSON_VALUE)
     public CourseMaterialResponse uploadMaterial(
             @PathVariable UUID courseId,
             @Valid @RequestBody UploadMaterialRequest request,
             Authentication authentication
     ) {
         return instructorService.uploadMaterial(courseId, request, getActor(authentication));
+    }
+
+    @PostMapping(value = "/courses/{courseId}/materials", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public CourseMaterialResponse uploadMaterialFile(
+            @PathVariable UUID courseId,
+            @RequestParam("title") String title,
+            @RequestParam("materialType") MaterialType materialType,
+            @RequestPart("file") MultipartFile file,
+            Authentication authentication
+    ) {
+        return instructorService.uploadMaterialFile(courseId, title, materialType, file, getActor(authentication));
     }
 
     @PostMapping("/courses/{courseId}/assignments")

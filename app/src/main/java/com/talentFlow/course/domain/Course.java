@@ -28,6 +28,12 @@ public class Course extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(length = 500)
+    private String coverImageUrl;
+
+    @Column(length = 500)
+    private String introVideoUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private CourseStatus status;

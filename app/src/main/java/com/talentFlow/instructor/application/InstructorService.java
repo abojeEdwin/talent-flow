@@ -10,6 +10,8 @@ import com.talentFlow.course.web.dto.CreateCourseRequest;
 import com.talentFlow.course.web.dto.LearnerProgressResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
 import com.talentFlow.course.web.dto.UploadMaterialRequest;
+import com.talentFlow.course.domain.enums.MaterialType;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -17,9 +19,21 @@ import java.util.UUID;
 public interface InstructorService {
     CourseResponse createCourse(CreateCourseRequest request, User actor);
 
+    CourseResponse createCourseWithMedia(String title,
+                                         String description,
+                                         MultipartFile coverImage,
+                                         MultipartFile introVideo,
+                                         User actor);
+
     List<CourseResponse> listMyCourses(User actor);
 
     CourseMaterialResponse uploadMaterial(UUID courseId, UploadMaterialRequest request, User actor);
+
+    CourseMaterialResponse uploadMaterialFile(UUID courseId,
+                                              String title,
+                                              MaterialType materialType,
+                                              MultipartFile file,
+                                              User actor);
 
     AssignmentResponse createAssignment(UUID courseId, CreateAssignmentRequest request, User actor);
 

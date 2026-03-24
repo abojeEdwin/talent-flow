@@ -3,7 +3,9 @@ package com.talentFlow.instructor.application;
 import com.talentFlow.auth.domain.Role;
 import com.talentFlow.auth.domain.User;
 import com.talentFlow.auth.domain.enums.RoleName;
+import com.talentFlow.common.storage.worker.MediaUploadQueueService;
 import com.talentFlow.common.exception.ApiException;
+import com.talentFlow.common.storage.enums.MediaUploadTargetType;
 import com.talentFlow.course.domain.Assignment;
 import com.talentFlow.course.domain.AssignmentFeedback;
 import com.talentFlow.course.domain.AssignmentSubmission;
@@ -13,6 +15,8 @@ import com.talentFlow.course.domain.CourseInstructor;
 import com.talentFlow.course.domain.CourseMaterial;
 import com.talentFlow.course.domain.enums.CourseStatus;
 import com.talentFlow.course.domain.enums.EnrollmentStatus;
+import com.talentFlow.course.domain.enums.MaterialType;
+import com.talentFlow.course.domain.enums.MaterialUploadStatus;
 import com.talentFlow.course.domain.enums.SubmissionStatus;
 import com.talentFlow.course.infrastructure.repository.AssignmentFeedbackRepository;
 import com.talentFlow.course.infrastructure.repository.AssignmentRepository;
@@ -34,10 +38,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -54,17 +58,50 @@ public class InstructorServiceImpl implements InstructorService {
     private final AssignmentSubmissionRepository assignmentSubmissionRepository;
     private final AssignmentFeedbackRepository assignmentFeedbackRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
+    private final MediaUploadQueueService mediaUploadQueueService;
 
     @Override
     @Transactional
     public CourseResponse createCourse(CreateCourseRequest request, User actor) {
+        return createCourseWithMedia(request.title(), request.description(), null, null, actor);
+    }
+
+    @Override
+    @Transactional
+    public CourseResponse createCourseWithMedia(String title,
+                                                String description,
+                                                MultipartFile coverImage,
+                                                MultipartFile introVideo,
+                                                User actor) {
         ensureInstructor(actor);
+        if (title == null || title.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Course title is required");
+        }
+
         Course course = new Course();
-        course.setTitle(request.title().trim());
-        course.setDescription(request.description());
+        course.setTitle(title.trim());
+        course.setDescription(description);
         course.setStatus(CourseStatus.DRAFT);
         course.setCreatedByUser(actor);
+
         Course saved = courseRepository.save(course);
+
+        if (coverImage != null && !coverImage.isEmpty()) {
+            mediaUploadQueueService.enqueue(
+                    MediaUploadTargetType.COURSE_COVER,
+                    saved.getId(),
+                    "courses/cover-images",
+                    coverImage
+            );
+        }
+        if (introVideo != null && !introVideo.isEmpty()) {
+            mediaUploadQueueService.enqueue(
+                    MediaUploadTargetType.COURSE_INTRO_VIDEO,
+                    saved.getId(),
+                    "courses/intro-videos",
+                    introVideo
+            );
+        }
 
         CourseInstructor ci = new CourseInstructor();
         ci.setCourse(saved);
@@ -95,6 +132,7 @@ public class InstructorServiceImpl implements InstructorService {
         material.setTitle(request.title().trim());
         material.setMaterialType(request.materialType());
         material.setContentUrl(request.contentUrl().trim());
+        material.setUploadStatus(MaterialUploadStatus.COMPLETED);
         material.setUploadedByUser(actor);
         CourseMaterial saved = courseMaterialRepository.save(material);
         return new CourseMaterialResponse(
@@ -103,6 +141,53 @@ public class InstructorServiceImpl implements InstructorService {
                 saved.getTitle(),
                 saved.getMaterialType().name(),
                 saved.getContentUrl(),
+                saved.getUploadStatus().name(),
+                actor.getId()
+        );
+    }
+
+    @Override
+    @Transactional
+    public CourseMaterialResponse uploadMaterialFile(UUID courseId,
+                                                     String title,
+                                                     MaterialType materialType,
+                                                     MultipartFile file,
+                                                     User actor) {
+        if (title == null || title.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Material title is required");
+        }
+        if (materialType == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Material type is required");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Material file is required");
+        }
+
+        Course course = getCourseAndCheckInstructor(courseId, actor);
+
+        CourseMaterial material = new CourseMaterial();
+        material.setCourse(course);
+        material.setTitle(title.trim());
+        material.setMaterialType(materialType);
+        material.setContentUrl(null);
+        material.setUploadStatus(MaterialUploadStatus.PENDING);
+        material.setUploadedByUser(actor);
+        CourseMaterial saved = courseMaterialRepository.save(material);
+
+        mediaUploadQueueService.enqueue(
+                MediaUploadTargetType.COURSE_MATERIAL,
+                saved.getId(),
+                "courses/" + courseId + "/materials",
+                file
+        );
+
+        return new CourseMaterialResponse(
+                saved.getId(),
+                course.getId(),
+                saved.getTitle(),
+                saved.getMaterialType().name(),
+                saved.getContentUrl(),
+                saved.getUploadStatus().name(),
                 actor.getId()
         );
     }
@@ -227,6 +312,8 @@ public class InstructorServiceImpl implements InstructorService {
                 course.getId(),
                 course.getTitle(),
                 course.getDescription(),
+                course.getCoverImageUrl(),
+                course.getIntroVideoUrl(),
                 course.getStatus().name(),
                 course.getPublishedAt(),
                 course.getArchivedAt(),

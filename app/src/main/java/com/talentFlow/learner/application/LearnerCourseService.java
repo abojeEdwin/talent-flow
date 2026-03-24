@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface LearnerCourseService {
+
     List<CourseResponse> browsePublishedCourses();
 
     CourseResponse enrollInCourse(UUID courseId, User learner);

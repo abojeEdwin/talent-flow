@@ -117,6 +117,8 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
                 course.getId(),
                 course.getTitle(),
                 course.getDescription(),
+                course.getCoverImageUrl(),
+                course.getIntroVideoUrl(),
                 course.getStatus().name(),
                 progressPct,
                 moduleResponses
@@ -164,6 +166,8 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
                 course.getId(),
                 course.getTitle(),
                 course.getDescription(),
+                course.getCoverImageUrl(),
+                course.getIntroVideoUrl(),
                 course.getStatus().name(),
                 course.getPublishedAt(),
                 course.getArchivedAt(),

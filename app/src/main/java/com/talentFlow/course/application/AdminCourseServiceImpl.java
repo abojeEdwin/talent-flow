@@ -208,6 +208,8 @@ public class AdminCourseServiceImpl implements AdminCourseService {
                 course.getId(),
                 course.getTitle(),
                 course.getDescription(),
+                course.getCoverImageUrl(),
+                course.getIntroVideoUrl(),
                 course.getStatus().name(),
                 course.getPublishedAt(),
                 course.getArchivedAt(),

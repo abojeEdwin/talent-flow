@@ -8,6 +8,7 @@ public record CourseMaterialResponse(
         String title,
         String materialType,
         String contentUrl,
+        String uploadStatus,
         UUID uploadedByUserId
 ) {
 }
