@@ -8,9 +8,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 public class UserPrincipal implements UserDetails {
 
@@ -38,9 +38,13 @@ public class UserPrincipal implements UserDetails {
     }
 
     public static UserPrincipal from(User user) {
-        Set<SimpleGrantedAuthority> authorities = user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName().name()))
-                .collect(Collectors.toSet());
+        Set<SimpleGrantedAuthority> authorities = new HashSet<>();
+        user.getRoles().forEach(role -> {
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getName().name()));
+            role.getPermissions().forEach(permission ->
+                    authorities.add(new SimpleGrantedAuthority(permission.getName().name()))
+            );
+        });
 
         boolean enabled = user.isEmailVerified() && user.getStatus() == UserStatus.ACTIVE;
         boolean accountNonLocked = user.getStatus() != UserStatus.LOCKED
