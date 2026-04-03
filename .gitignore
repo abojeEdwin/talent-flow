@@ -3,7 +3,8 @@
 .idea
 target/
 app/target/
-
+render.yaml
+app/src/main/resources/application-prod.yml
 # Log file
 *.log
 
