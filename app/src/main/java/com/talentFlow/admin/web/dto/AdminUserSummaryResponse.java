@@ -1,7 +1,6 @@
 package com.talentFlow.admin.web.dto;
 
 import java.time.LocalDateTime;
-import java.util.Set;
 import java.util.UUID;
 
 public record AdminUserSummaryResponse(
@@ -11,7 +10,7 @@ public record AdminUserSummaryResponse(
         String lastName,
         String status,
         boolean emailVerified,
-        Set<String> roles,
+        String role,
         LocalDateTime lastLoginAt
 ) {
 }

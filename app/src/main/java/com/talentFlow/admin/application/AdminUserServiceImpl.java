@@ -7,12 +7,10 @@ import com.talentFlow.admin.web.dto.AdminUserSummaryResponse;
 import com.talentFlow.admin.web.dto.CreateInstructorRequest;
 import com.talentFlow.admin.web.dto.OnboardInstructorResponse;
 import com.talentFlow.auth.application.AuthService;
-import com.talentFlow.auth.domain.Role;
 import com.talentFlow.auth.domain.User;
 import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.auth.domain.enums.UserStatus;
 import com.talentFlow.auth.infrastructure.mail.AuthMailService;
-import com.talentFlow.auth.infrastructure.repository.RoleRepository;
 import com.talentFlow.auth.infrastructure.repository.UserRepository;
 import com.talentFlow.common.exception.ApiException;
 import lombok.RequiredArgsConstructor;
@@ -25,16 +23,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AdminUserServiceImpl implements AdminUserService {
 
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
     private final AdminAuditLogRepository adminAuditLogRepository;
     private final AuthMailService authMailService;
     private final AuthService authService;
@@ -93,19 +88,16 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw new ApiException(HttpStatus.CONFLICT, "Email is already registered");
         }
 
-        Role mentorRole = roleRepository.findByName(RoleName.MENTOR)
-                .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "MENTOR role is missing"));
-
         String temporaryPassword = generateTemporaryPassword();
         User instructor = new User();
         instructor.setEmail(email);
         instructor.setFirstName(request.firstName().trim());
         instructor.setLastName(request.lastName().trim());
         instructor.setPasswordHash(passwordEncoder.encode(temporaryPassword));
+        instructor.setRole(RoleName.INSTRUCTOR);
         instructor.setEmailVerified(true);
         instructor.setStatus(UserStatus.ACTIVE);
         instructor.setFailedLoginAttempts(0);
-        instructor.getRoles().add(mentorRole);
 
         User saved = userRepository.save(instructor);
         authMailService.sendInstructorWelcomeEmail(
@@ -151,20 +143,14 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     @Transactional
-    public AdminUserDetailResponse updateUserRoles(UUID userId, Set<RoleName> roleNames, User actor) {
+    public AdminUserDetailResponse updateUserRoles(UUID userId, RoleName role, User actor) {
         User user = getUserOrThrow(userId);
-        Set<Role> roles = roleNames.stream()
-                .map(roleName -> roleRepository.findByName(roleName)
-                        .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Role " + roleName + " does not exist")))
-                .collect(Collectors.toSet());
-
-        Set<String> previousRoles = user.getRoles().stream().map(role -> role.getName().name()).collect(Collectors.toSet());
-        user.setRoles(roles);
+        RoleName previousRole = user.getRole();
+        user.setRole(role);
         User saved = userRepository.save(user);
 
-        Set<String> newRoles = saved.getRoles().stream().map(role -> role.getName().name()).collect(Collectors.toSet());
         writeAudit(actor, "USER_ROLES_UPDATED", "USER", saved.getId(),
-                "Changed roles from " + previousRoles + " to " + newRoles);
+                "Changed role from " + previousRole + " to " + saved.getRole());
         return toDetailResponse(saved);
     }
 
@@ -191,7 +177,7 @@ public class AdminUserServiceImpl implements AdminUserService {
                 user.getLastName(),
                 user.getStatus().name(),
                 user.isEmailVerified(),
-                mapRoleNames(user),
+                user.getRole().name(),
                 user.getLastLoginAt()
         );
     }
@@ -207,16 +193,10 @@ public class AdminUserServiceImpl implements AdminUserService {
                 user.getFailedLoginAttempts(),
                 user.getLockedUntil(),
                 user.getLastLoginAt(),
-                mapRoleNames(user),
+                user.getRole().name(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );
-    }
-
-    private Set<String> mapRoleNames(User user) {
-        return user.getRoles().stream()
-                .map(role -> role.getName().name())
-                .collect(Collectors.toSet());
     }
 
     private String generateTemporaryPassword() {

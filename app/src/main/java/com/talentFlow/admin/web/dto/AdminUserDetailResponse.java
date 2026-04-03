@@ -1,7 +1,6 @@
 package com.talentFlow.admin.web.dto;
 
 import java.time.LocalDateTime;
-import java.util.Set;
 import java.util.UUID;
 
 public record AdminUserDetailResponse(
@@ -14,7 +13,7 @@ public record AdminUserDetailResponse(
         int failedLoginAttempts,
         LocalDateTime lockedUntil,
         LocalDateTime lastLoginAt,
-        Set<String> roles,
+        String role,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

@@ -60,6 +60,12 @@ public class AdminProgramServiceImpl implements AdminProgramService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<CohortResponse> listAllCohorts() {
+        return cohortRepository.findAll().stream().map(this::toCohortResponse).toList();
+    }
+
+    @Override
     @Transactional
     public ProjectTeamResponse createProjectTeam(CreateProjectTeamRequest request, User actor) {
         Cohort cohort = cohortRepository.findById(request.cohortId())

@@ -20,7 +20,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/lessons")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('INTERN','MENTOR','ADMIN')")
+@PreAuthorize("hasAnyRole('INTERN','INSTRUCTOR','ADMIN')")
 public class LearnerLessonController {
 
     private final LearnerCourseService learnerCourseService;

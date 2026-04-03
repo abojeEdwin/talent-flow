@@ -39,12 +39,7 @@ public class UserPrincipal implements UserDetails {
 
     public static UserPrincipal from(User user) {
         Set<SimpleGrantedAuthority> authorities = new HashSet<>();
-        user.getRoles().forEach(role -> {
-            authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getName().name()));
-            role.getPermissions().forEach(permission ->
-                    authorities.add(new SimpleGrantedAuthority(permission.getName().name()))
-            );
-        });
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
 
         boolean enabled = user.isEmailVerified() && user.getStatus() == UserStatus.ACTIVE;
         boolean accountNonLocked = user.getStatus() != UserStatus.LOCKED

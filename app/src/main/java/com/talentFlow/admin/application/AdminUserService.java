@@ -10,7 +10,6 @@ import com.talentFlow.auth.domain.enums.UserStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import java.util.Set;
 import java.util.UUID;
 
 public interface AdminUserService {
@@ -26,5 +25,5 @@ public interface AdminUserService {
 
     void triggerPasswordReset(UUID userId, User actor);
 
-    AdminUserDetailResponse updateUserRoles(UUID userId, Set<RoleName> roleNames, User actor);
+    AdminUserDetailResponse updateUserRoles(UUID userId, RoleName role, User actor);
 }

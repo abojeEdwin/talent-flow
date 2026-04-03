@@ -34,13 +34,13 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/admin/users")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('USER_MANAGE')")
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminUserController {
 
     private final AdminUserService adminUserService;
     private final UserRepository userRepository;
 
-    @GetMapping
+    @GetMapping("/")
     public Page<AdminUserSummaryResponse> listUsers(
             @RequestParam(required = false) String query,
             @RequestParam(required = false) UserStatus status,
@@ -69,7 +69,7 @@ public class AdminUserController {
             @Valid @RequestBody UpdateUserRolesRequest request,
             Authentication authentication
     ) {
-        return adminUserService.updateUserRoles(userId, request.roles(), getActor(authentication));
+        return adminUserService.updateUserRoles(userId, request.role(), getActor(authentication));
     }
 
     @PostMapping("/instructors")

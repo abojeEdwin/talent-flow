@@ -14,6 +14,8 @@ import java.util.UUID;
 public interface AdminProgramService {
     CohortResponse createCohort(CreateCohortRequest request, User actor);
 
+    List<CohortResponse> listAllCohorts();
+
     ProjectTeamResponse createProjectTeam(CreateProjectTeamRequest request, User actor);
 
     TeamMemberResponse allocateUserToTeam(UUID teamId, AllocateUserToTeamRequest request, User actor);

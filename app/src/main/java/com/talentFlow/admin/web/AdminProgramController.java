@@ -29,7 +29,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/admin/programs")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('PROGRAM_MANAGE')")
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminProgramController {
 
     private final AdminProgramService adminProgramService;
@@ -38,6 +38,11 @@ public class AdminProgramController {
     @PostMapping("/cohorts")
     public CohortResponse createCohort(@Valid @RequestBody CreateCohortRequest request, Authentication authentication) {
         return adminProgramService.createCohort(request, getActor(authentication));
+    }
+
+    @GetMapping("/all-cohorts")
+    public List<CohortResponse> listAllCohorts() {
+        return adminProgramService.listAllCohorts();
     }
 
     @PostMapping("/teams")

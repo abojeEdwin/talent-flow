@@ -1,6 +1,5 @@
 package com.talentFlow.instructor.application;
 
-import com.talentFlow.auth.domain.Role;
 import com.talentFlow.auth.domain.User;
 import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.common.storage.worker.MediaUploadQueueService;
@@ -292,15 +291,14 @@ public class InstructorServiceImpl implements InstructorService {
     }
 
     private void ensureInstructor(User actor) {
-        boolean instructor = actor.getRoles().stream().map(Role::getName)
-                .anyMatch(name -> name == RoleName.MENTOR || name == RoleName.ADMIN);
+        boolean instructor = actor.getRole() == RoleName.INSTRUCTOR || actor.getRole() == RoleName.ADMIN;
         if (!instructor) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Instructor role required");
         }
     }
 
     private boolean isAdmin(User actor) {
-        return actor.getRoles().stream().anyMatch(r -> r.getName() == RoleName.ADMIN);
+        return actor.getRole() == RoleName.ADMIN;
     }
 
     private CourseResponse toCourseResponse(Course course) {
