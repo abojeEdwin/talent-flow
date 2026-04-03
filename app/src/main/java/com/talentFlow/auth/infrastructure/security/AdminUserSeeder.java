@@ -19,7 +19,7 @@ public class AdminUserSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Value("${app.seed.admin.enabled:false}")
+    @Value("${app.seed.admin.enabled:true}")
     private boolean enabled;
 
     @Value("${app.seed.admin.email:}")
