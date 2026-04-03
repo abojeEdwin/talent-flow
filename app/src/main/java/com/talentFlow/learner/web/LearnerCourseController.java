@@ -23,7 +23,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping({"/api/v1/learner/courses", "/api/v1/courses"})
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('INTERN','MENTOR','ADMIN')")
+@PreAuthorize("hasAnyRole('INTERN','INSTRUCTOR','ADMIN')")
 public class LearnerCourseController {
 
     private final LearnerCourseService learnerCourseService;

@@ -37,7 +37,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/instructor")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('MENTOR','ADMIN')")
+@PreAuthorize("hasAnyRole('INSTRUCTOR','ADMIN')")
 public class InstructorController {
 
     private final InstructorService instructorService;

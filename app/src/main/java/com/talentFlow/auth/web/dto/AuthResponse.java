@@ -1,6 +1,5 @@
 package com.talentFlow.auth.web.dto;
 
-import java.util.Set;
 import java.util.UUID;
 
 public record AuthResponse(
@@ -8,7 +7,7 @@ public record AuthResponse(
         String email,
         String firstName,
         String lastName,
-        Set<String> roles,
+        String role,
         boolean emailVerified,
         String status
 ) {
