@@ -28,6 +28,8 @@ public class MediaUploadWorker {
     private final FileStorageService fileStorageService;
     private final CourseRepository courseRepository;
     private final CourseMaterialRepository courseMaterialRepository;
+
+
     @Scheduled(fixedDelay = 5000)
     public void processPendingUploads() {
         List<MediaUploadJob> jobs = mediaUploadJobRepository

@@ -48,6 +48,7 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     private final LessonProgressRepository lessonProgressRepository;
     private final ProgressTrackingService progressTrackingService;
 
+
     @Override
     @Transactional(readOnly = true)
     public List<CourseResponse> browsePublishedCourses() {
