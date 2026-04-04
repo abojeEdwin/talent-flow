@@ -39,72 +39,76 @@ public class AdminUserSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        String normalizedEmail = adminEmail == null ? "" : adminEmail.trim().toLowerCase();
-        log.info("Admin seeder startup. enabled={}, emailConfigured={}", enabled, !normalizedEmail.isBlank());
+        try {
+            String normalizedEmail = adminEmail == null ? "" : adminEmail.trim().toLowerCase();
+            log.info("Admin seeder startup. enabled={}, emailConfigured={}", enabled, !normalizedEmail.isBlank());
 
-        if (!enabled) {
-            log.info("Admin seeder is disabled (app.seed.admin.enabled=false)");
-            return;
-        }
+            if (!enabled) {
+                log.info("Admin seeder is disabled (app.seed.admin.enabled=false)");
+                return;
+            }
 
-        if (adminEmail.isBlank() || adminPassword.isBlank()) {
-            throw new IllegalStateException("Admin seeding is enabled, but app.seed.admin.email/password are missing");
-        }
+            if (adminEmail.isBlank() || adminPassword.isBlank()) {
+                throw new IllegalStateException("Admin seeding is enabled, but app.seed.admin.email/password are missing");
+            }
 
-        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
-                .orElseGet(() -> {
-                    User created = new User();
-                    created.setEmail(normalizedEmail);
-                    created.setFirstName(firstName.trim());
-                    created.setLastName(lastName.trim());
-                    created.setPasswordHash(passwordEncoder.encode(adminPassword));
-                    created.setRole(RoleName.ADMIN);
-                    created.setStatus(UserStatus.ACTIVE);
-                    created.setEmailVerified(true);
-                    created.setFailedLoginAttempts(0);
-                    created.setLockedUntil(null);
-                    return created;
-                });
+            User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
+                    .orElseGet(() -> {
+                        User created = new User();
+                        created.setEmail(normalizedEmail);
+                        created.setFirstName(firstName.trim());
+                        created.setLastName(lastName.trim());
+                        created.setPasswordHash(passwordEncoder.encode(adminPassword));
+                        created.setRole(RoleName.ADMIN);
+                        created.setStatus(UserStatus.ACTIVE);
+                        created.setEmailVerified(true);
+                        created.setFailedLoginAttempts(0);
+                        created.setLockedUntil(null);
+                        return created;
+                    });
 
-        boolean changed = false;
-        if (user.getFirstName() == null || user.getFirstName().isBlank()) {
-            user.setFirstName(firstName.trim());
-            changed = true;
-        }
-        if (user.getLastName() == null || user.getLastName().isBlank()) {
-            user.setLastName(lastName.trim());
-            changed = true;
-        }
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            user.setStatus(UserStatus.ACTIVE);
-            changed = true;
-        }
-        if (!user.isEmailVerified()) {
-            user.setEmailVerified(true);
-            changed = true;
-        }
-        if (updatePassword) {
-            user.setPasswordHash(passwordEncoder.encode(adminPassword));
-            changed = true;
-        }
-        if (user.getRole() != RoleName.ADMIN) {
-            user.setRole(RoleName.ADMIN);
-            changed = true;
-        }
-        if (user.getFailedLoginAttempts() != 0) {
-            user.setFailedLoginAttempts(0);
-            changed = true;
-        }
-        if (user.getLockedUntil() != null) {
-            user.setLockedUntil(null);
-            changed = true;
-        }
+            boolean changed = false;
+            if (user.getFirstName() == null || user.getFirstName().isBlank()) {
+                user.setFirstName(firstName.trim());
+                changed = true;
+            }
+            if (user.getLastName() == null || user.getLastName().isBlank()) {
+                user.setLastName(lastName.trim());
+                changed = true;
+            }
+            if (user.getStatus() != UserStatus.ACTIVE) {
+                user.setStatus(UserStatus.ACTIVE);
+                changed = true;
+            }
+            if (!user.isEmailVerified()) {
+                user.setEmailVerified(true);
+                changed = true;
+            }
+            if (updatePassword) {
+                user.setPasswordHash(passwordEncoder.encode(adminPassword));
+                changed = true;
+            }
+            if (user.getRole() != RoleName.ADMIN) {
+                user.setRole(RoleName.ADMIN);
+                changed = true;
+            }
+            if (user.getFailedLoginAttempts() != 0) {
+                user.setFailedLoginAttempts(0);
+                changed = true;
+            }
+            if (user.getLockedUntil() != null) {
+                user.setLockedUntil(null);
+                changed = true;
+            }
 
-        if (user.getId() == null || changed) {
-            userRepository.saveAndFlush(user);
-            log.info("Admin user seeded/updated successfully: {}", normalizedEmail);
-        } else {
-            log.info("Admin user already exists and is ready: {}", normalizedEmail);
+            if (user.getId() == null || changed) {
+                userRepository.saveAndFlush(user);
+                log.info("Admin user seeded/updated successfully: {}", normalizedEmail);
+            } else {
+                log.info("Admin user already exists and is ready: {}", normalizedEmail);
+            }
+        } catch (Exception ex) {
+            log.error("Failed to seed admin user", ex);
         }
     }
 }
