@@ -55,6 +55,7 @@ public class InstructorController {
             @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
             @RequestPart(value = "introVideo", required = false) MultipartFile introVideo,
             Authentication authentication
+
     ) {
         return instructorService.createCourseWithMedia(title, description, coverImage, introVideo, getActor(authentication));
     }
