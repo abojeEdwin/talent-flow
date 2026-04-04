@@ -1,6 +1,7 @@
 package com.talentFlow.auth.infrastructure.mail;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@ConditionalOnBean(JavaMailSender.class)
 public class AuthMailServiceImpl implements AuthMailService {
 
     private final JavaMailSender mailSender;
