@@ -24,7 +24,6 @@ public class MediaUploadQueueServiceImpl implements MediaUploadQueueService {
         if (file == null || file.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Upload file is required");
         }
-
         MediaUploadJob job = new MediaUploadJob();
         job.setTargetType(targetType);
         job.setTargetId(targetId);
