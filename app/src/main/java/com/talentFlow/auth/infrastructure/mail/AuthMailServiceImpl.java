@@ -1,18 +1,19 @@
 package com.talentFlow.auth.infrastructure.mail;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@ConditionalOnBean(JavaMailSender.class)
 public class AuthMailServiceImpl implements AuthMailService {
 
-    private final JavaMailSender mailSender;
+    private final ObjectProvider<JavaMailSender> mailSenderProvider;
 
     @Value("${app.mail.from}")
     private String fromAddress;
@@ -20,6 +21,10 @@ public class AuthMailServiceImpl implements AuthMailService {
     @Override
     public void sendVerificationEmail(String recipientEmail, String recipientName, String verificationLink) {
         try {
+            JavaMailSender mailSender = requireMailSenderOrSkip(recipientEmail, "verification");
+            if (mailSender == null) {
+                return;
+            }
             var message = mailSender.createMimeMessage();
             var helper = new MimeMessageHelper(message, false, "UTF-8");
 
@@ -37,6 +42,10 @@ public class AuthMailServiceImpl implements AuthMailService {
     @Override
     public void sendInstructorWelcomeEmail(String recipientEmail, String recipientName, String temporaryPassword, String loginUrl) {
         try {
+            JavaMailSender mailSender = requireMailSenderOrSkip(recipientEmail, "instructor welcome");
+            if (mailSender == null) {
+                return;
+            }
             var message = mailSender.createMimeMessage();
             var helper = new MimeMessageHelper(message, false, "UTF-8");
 
@@ -54,6 +63,10 @@ public class AuthMailServiceImpl implements AuthMailService {
     @Override
     public void sendPasswordResetEmail(String recipientEmail, String recipientName, String resetLink) {
         try {
+            JavaMailSender mailSender = requireMailSenderOrSkip(recipientEmail, "password reset");
+            if (mailSender == null) {
+                return;
+            }
             var message = mailSender.createMimeMessage();
             var helper = new MimeMessageHelper(message, false, "UTF-8");
 
@@ -90,5 +103,14 @@ public class AuthMailServiceImpl implements AuthMailService {
                 + "Use this link to set a new password:\n"
                 + resetLink + "\n\n"
                 + "If you did not request this, contact an administrator immediately.\n";
+    }
+
+    private JavaMailSender requireMailSenderOrSkip(String recipientEmail, String emailType) {
+        JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
+        if (mailSender == null) {
+            log.warn("JavaMailSender unavailable. Skipping {} email for {}", emailType, recipientEmail);
+            return null;
+        }
+        return mailSender;
     }
 }
