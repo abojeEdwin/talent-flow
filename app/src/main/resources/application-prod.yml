@@ -40,13 +40,13 @@ app:
     verification-token-frontend-url: ${VERIFICATION_TOKEN_FRONTEND_URL}
     password-reset-frontend-url: ${PASSWORD_RESET_FRONTEND_URL}
     login-url: ${LOGIN_URL}
-  seed:
-    admin:
-      enabled: ${ADMIN_SEED_ENABLED:false}
-      email: ${ADMIN_SEED_EMAIL}
-      password: ${ADMIN_SEED_PASSWORD}
-      first-name: ${ADMIN_SEED_FIRST_NAME}
-      last-name: ${ADMIN_SEED_LAST_NAME}
-      update-password: ${ADMIN_SEED_UPDATE_PASSWORD:false}
+#  seed:
+#    admin:
+#      enabled: ${ADMIN_SEED_ENABLED:false}
+#      email: ${ADMIN_SEED_EMAIL}
+#      password: ${ADMIN_SEED_PASSWORD}
+#      first-name: ${ADMIN_SEED_FIRST_NAME}
+#      last-name: ${ADMIN_SEED_LAST_NAME}
+#      update-password: ${ADMIN_SEED_UPDATE_PASSWORD:false}
   mail:
     from: ${EMAIL_FROM}
