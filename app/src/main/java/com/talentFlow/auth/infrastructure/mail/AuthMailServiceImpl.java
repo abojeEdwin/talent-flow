@@ -15,7 +15,7 @@ public class AuthMailServiceImpl implements AuthMailService {
 
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
 
-    @Value("${app.mail.from}")
+    @Value("${app.mail.from:no-reply@talentflow.local}")
     private String fromAddress;
 
     @Override
