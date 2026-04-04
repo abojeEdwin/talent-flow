@@ -38,4 +38,5 @@ public class LearnerLessonController {
         return userRepository.findByEmailIgnoreCase(userDetails.getUsername())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
     }
+
 }
