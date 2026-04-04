@@ -17,7 +17,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class MediaUploadQueueServiceImpl implements MediaUploadQueueService {
-
     private final MediaUploadJobRepository mediaUploadJobRepository;
 
     @Override
