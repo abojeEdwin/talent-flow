@@ -35,10 +35,12 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final AuthService authService;
     private final PasswordEncoder passwordEncoder;
 
-    @Value("${app.security.password-reset-frontend-url}")
+    //app.security.password-reset-frontend-url
+    @Value("${PASSWORD_RESET_FRONTEND_URL}")
     private String passwordResetFrontendUrl;
 
-    @Value("${app.security.login-url}")
+    //app.security.login-url
+    @Value("${LOGIN_URL}")
     private String loginUrl;
 
     @Override

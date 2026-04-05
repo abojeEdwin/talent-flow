@@ -19,22 +19,22 @@ public class AdminUserSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Value("${ADMIN_SEED_ENABLED}")
+    @Value("${app.seed.admin.enabled:${ADMIN_SEED_ENABLED:false}}")
     private boolean enabled;
 
-    @Value("${ADMIN_SEED_EMAIL}")
+    @Value("${app.seed.admin.email:${ADMIN_SEED_EMAIL:}}")
     private String adminEmail;
 
-    @Value("${ADMIN_SEED_PASSWORD}")
+    @Value("${app.seed.admin.password:${ADMIN_SEED_PASSWORD:}}")
     private String adminPassword;
 
-    @Value("${ADMIN_SEED_FIRST_NAME}")
+    @Value("${app.seed.admin.first-name:${ADMIN_SEED_FIRST_NAME:System}}")
     private String firstName;
 
-    @Value("${ADMIN_SEED_LAST_NAME}")
+    @Value("${app.seed.admin.last-name:${ADMIN_SEED_LAST_NAME:Admin}}")
     private String lastName;
 
-    @Value("${ADMIN_SEED_UPDATE_PASSWORD}")
+    @Value("${app.seed.admin.update-password:${ADMIN_SEED_UPDATE_PASSWORD:false}}")
     private boolean updatePassword;
 
     @Override
