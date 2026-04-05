@@ -31,7 +31,7 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final AuthenticationEntryPointImpl authenticationEntryPoint;
 
-    @Value("${CORS_ALLOWED_ORIGINS:http://localhost:3000}")
+    @Value("${CORS_ALLOWED_ORIGINS:http://localhost:3000,https://talent-flow-frontend-design.vercel.app}")
     private String corsAllowedOrigins;
 
     @Bean
@@ -81,6 +81,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         List<String> allowedOrigins = Arrays.stream(corsAllowedOrigins.split(","))
                 .map(String::trim)
+                .map(origin -> origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin)
                 .filter(origin -> !origin.isBlank())
                 .collect(Collectors.toList());
         configuration.setAllowedOrigins(allowedOrigins);
