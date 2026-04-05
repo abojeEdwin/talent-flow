@@ -50,6 +50,8 @@ public class AuthServiceImpl implements AuthService {
     @Value("${app.security.verification-token-expiry-hours:24}")
     private long verificationTokenExpiryHours;
 
+
+
     //app.security.verification-token-frontend-url
     @Value("${VERIFICATION_TOKEN_FRONTEND_URL}")
     private String verificationTokenFrontendUrl;
