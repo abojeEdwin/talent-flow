@@ -12,6 +12,9 @@ spring:
       mail:
         smtp:
           auth: true
+          connectiontimeout: ${EMAIL_CONNECTION_TIMEOUT:5000}
+          timeout: ${EMAIL_TIMEOUT:5000}
+          writetimeout: ${EMAIL_WRITE_TIMEOUT:5000}
           starttls:
             enable: true
           ssl:
