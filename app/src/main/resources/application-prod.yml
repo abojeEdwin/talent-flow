@@ -33,6 +33,7 @@ server:
     session:
       cookie:
         secure: ${SESSION_COOKIE_SECURE:true}
+        same-site: ${SESSION_COOKIE_SAME_SITE:none}
 
 logging:
   level:
