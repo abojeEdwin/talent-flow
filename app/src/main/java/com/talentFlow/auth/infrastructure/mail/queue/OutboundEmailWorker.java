@@ -1,11 +1,10 @@
 package com.talentFlow.auth.infrastructure.mail.queue;
 
+import com.resend.Resend;
+import com.resend.services.emails.model.CreateEmailOptions;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,17 +19,13 @@ import java.util.UUID;
 public class OutboundEmailWorker {
 
     private final OutboundEmailJobRepository outboundEmailJobRepository;
-    private final ObjectProvider<JavaMailSender> mailSenderProvider;
-
-
 
     //app.mail.from:no-reply@talentflow.local
     @Value("${EMAIL_FROM}")
     private String fromAddress;
 
-    //spring.mail.username:
-    @Value("${EMAIL_USERNAME}")
-    private String smtpUsername;
+    @Value("${RESEND_API_KEY:}")
+    private String resendApiKey;
 
     @Scheduled(fixedDelay = 5000)
     public void processPendingEmails() {
@@ -69,18 +64,15 @@ public class OutboundEmailWorker {
             job.setAttempts(job.getAttempts() + 1);
             outboundEmailJobRepository.save(job);
 
-            JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
-            if (mailSender == null) {
-                throw new IllegalStateException("JavaMailSender unavailable");
-            }
-
-            var message = mailSender.createMimeMessage();
-            var helper = new MimeMessageHelper(message, false, "UTF-8");
-            helper.setFrom(resolveFromAddress());
-            helper.setTo(job.getRecipientEmail());
-            helper.setSubject(resolveSubject(job));
-            helper.setText(resolveBody(job), false);
-            mailSender.send(message);
+            Resend resend = new Resend(resolveResendApiKey());
+            CreateEmailOptions email = CreateEmailOptions.builder()
+                    .from(resolveFromAddress())
+                    .to(job.getRecipientEmail())
+                    .subject(resolveSubject(job))
+                    .text(resolveBody(job))
+                    .build();
+            var response = resend.emails().send(email);
+            log.info("Outbound email job {} sent via Resend with id {}", job.getId(), response.getId());
 
             job.setStatus(EmailJobStatus.COMPLETED);
             job.setLastError(null);
@@ -133,11 +125,15 @@ public class OutboundEmailWorker {
         if (!configuredFrom.isBlank()) {
             return configuredFrom;
         }
-        String username = smtpUsername == null ? "" : smtpUsername.trim();
-        if (!username.isBlank() && username.contains("@")) {
-            return username;
-        }
         throw new IllegalStateException("Missing valid EMAIL_FROM; configure a verified sender email");
+    }
+
+    private String resolveResendApiKey() {
+        String configuredApiKey = resendApiKey == null ? "" : resendApiKey.trim();
+        if (!configuredApiKey.isBlank()) {
+            return configuredApiKey;
+        }
+        throw new IllegalStateException("Missing RESEND_API_KEY; configure Resend API key for HTTP email delivery");
     }
 
     private String buildErrorMessage(Exception exception) {

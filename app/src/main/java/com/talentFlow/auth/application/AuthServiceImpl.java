@@ -52,8 +52,9 @@ public class AuthServiceImpl implements AuthService {
 
 
 
-    //app.security.verification-token-frontend-url
-    @Value("${VERIFICATION_TOKEN_FRONTEND_URL}")
+
+    //VERIFICATION_TOKEN_FRONTEND_URL
+    @Value("${app.security.verification-token-frontend-url}")
     private String verificationTokenFrontendUrl;
 
     @Value("${app.security.password-reset-expiry-hours:2}")

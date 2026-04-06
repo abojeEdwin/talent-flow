@@ -36,8 +36,9 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final PasswordEncoder passwordEncoder;
 
 
-    //app.security.password-reset-frontend-url
-    @Value("${PASSWORD_RESET_FRONTEND_URL}")
+
+    //PASSWORD_RESET_FRONTEND_URL
+    @Value("${app.security.password-reset-frontend-url}")
     private String passwordResetFrontendUrl;
 
 
@@ -76,6 +77,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (newStatus == UserStatus.ACTIVE) {
             user.setLockedUntil(null);
             user.setFailedLoginAttempts(0);
+            user.setEmailVerified(true);
         }
 
         User saved = userRepository.save(user);

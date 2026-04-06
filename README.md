@@ -11,7 +11,7 @@ This repository includes a Render Blueprint at [render.yaml](render.yaml).
 3. Confirm the web service `talent-flow-api` and database `talent-flow-db`.
 4. Set all `sync: false` environment variables in Render before first deploy:
    - `CORS_ALLOWED_ORIGINS`
-   - `EMAIL_HOST`, `EMAIL_USERNAME`, `EMAIL_PASSWORD`, `EMAIL_FROM`
+   - `RESEND_API_KEY`, `EMAIL_FROM`
    - `VERIFICATION_TOKEN_FRONTEND_URL`, `PASSWORD_RESET_FRONTEND_URL`, `LOGIN_URL`
    - `S3_BUCKET_ACCESS_KEY`, `S3_BUCKET_SECRET_KEY`, `S3_BUCKET_NAME` (and region if needed)
    - `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD` (only if `ADMIN_SEED_ENABLED=true`)
