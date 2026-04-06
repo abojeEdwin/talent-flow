@@ -11,4 +11,9 @@ public interface OutboundEmailJobRepository extends JpaRepository<OutboundEmailJ
             EmailJobStatus status,
             LocalDateTime nextAttemptAt
     );
+
+    List<OutboundEmailJob> findTop20ByStatusAndUpdatedAtLessThanEqualOrderByUpdatedAtAsc(
+            EmailJobStatus status,
+            LocalDateTime updatedAt
+    );
 }

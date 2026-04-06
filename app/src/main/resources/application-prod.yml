@@ -4,9 +4,9 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
   mail:
-    host: ${EMAIL_HOST:smtp.mailjet.com}
+    host: ${EMAIL_HOST:smtp.resend.com}
     port: ${EMAIL_PORT:587}
-    username: ${EMAIL_USERNAME}
+    username: ${EMAIL_USERNAME:resend}
     password: ${EMAIL_PASSWORD}
     properties:
       mail:

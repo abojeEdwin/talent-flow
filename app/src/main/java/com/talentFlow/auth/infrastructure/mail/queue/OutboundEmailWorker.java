@@ -22,8 +22,15 @@ public class OutboundEmailWorker {
     private final OutboundEmailJobRepository outboundEmailJobRepository;
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
 
-    @Value("${app.mail.from:no-reply@talentflow.local}")
+
+
+    //app.mail.from:no-reply@talentflow.local
+    @Value("${EMAIL_FROM}")
     private String fromAddress;
+
+    //spring.mail.username:
+    @Value("${EMAIL_USERNAME}")
+    private String smtpUsername;
 
     @Scheduled(fixedDelay = 5000)
     public void processPendingEmails() {
@@ -32,6 +39,21 @@ public class OutboundEmailWorker {
 
         for (OutboundEmailJob job : jobs) {
             processSingleJob(job.getId());
+        }
+    }
+
+    @Scheduled(fixedDelay = 60000, initialDelay = 10000)
+    public void recoverStuckJobs() {
+        LocalDateTime staleCutoff = LocalDateTime.now().minusMinutes(5);
+        List<OutboundEmailJob> staleJobs = outboundEmailJobRepository
+                .findTop20ByStatusAndUpdatedAtLessThanEqualOrderByUpdatedAtAsc(EmailJobStatus.PROCESSING, staleCutoff);
+
+        for (OutboundEmailJob staleJob : staleJobs) {
+            staleJob.setStatus(EmailJobStatus.PENDING);
+            staleJob.setNextAttemptAt(LocalDateTime.now());
+            staleJob.setLastError("Recovered from stale PROCESSING state after worker interruption");
+            outboundEmailJobRepository.save(staleJob);
+            log.warn("Recovered stale outbound email job {}", staleJob.getId());
         }
     }
 
@@ -54,7 +76,7 @@ public class OutboundEmailWorker {
 
             var message = mailSender.createMimeMessage();
             var helper = new MimeMessageHelper(message, false, "UTF-8");
-            helper.setFrom(fromAddress);
+            helper.setFrom(resolveFromAddress());
             helper.setTo(job.getRecipientEmail());
             helper.setSubject(resolveSubject(job));
             helper.setText(resolveBody(job), false);
@@ -70,7 +92,7 @@ public class OutboundEmailWorker {
                     job.getAttempts(),
                     exception.getMessage()
             );
-            handleFailure(job, exception.getMessage());
+            handleFailure(job, buildErrorMessage(exception));
         }
     }
 
@@ -104,6 +126,28 @@ public class OutboundEmailWorker {
 
     private String nullSafe(String value) {
         return value == null ? "" : value;
+    }
+
+    private String resolveFromAddress() {
+        String configuredFrom = fromAddress == null ? "" : fromAddress.trim();
+        if (!configuredFrom.isBlank()) {
+            return configuredFrom;
+        }
+        String username = smtpUsername == null ? "" : smtpUsername.trim();
+        if (!username.isBlank() && username.contains("@")) {
+            return username;
+        }
+        throw new IllegalStateException("Missing valid EMAIL_FROM; configure a verified sender email");
+    }
+
+    private String buildErrorMessage(Exception exception) {
+        Throwable root = exception;
+        while (root.getCause() != null) {
+            root = root.getCause();
+        }
+        String type = root.getClass().getSimpleName();
+        String message = root.getMessage();
+        return message == null || message.isBlank() ? type : type + ": " + message;
     }
 
     private void handleFailure(OutboundEmailJob job, String errorMessage) {
