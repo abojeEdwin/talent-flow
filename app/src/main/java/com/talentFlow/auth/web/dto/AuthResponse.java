@@ -8,7 +8,6 @@ public record AuthResponse(
         String firstName,
         String lastName,
         String role,
-        boolean emailVerified,
         String status
 ) {
 }

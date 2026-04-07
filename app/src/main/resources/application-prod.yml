@@ -20,12 +20,17 @@ server:
         same-site: ${SESSION_COOKIE_SAME_SITE:none}
 
 logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{requestId:-}] %logger{36} - %msg%n"
   level:
-    org.springframework.boot.web: DEBUG
+    root: INFO
+    com.talentFlow: INFO
+    org.springframework.boot.web: INFO
 
 app:
   security:
-    verification-token-frontend-url: ${VERIFICATION_TOKEN_FRONTEND_URL}
+    jwt-secret: ${JWT_SECRET}
+    jwt-expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
     password-reset-frontend-url: ${PASSWORD_RESET_FRONTEND_URL}
     login-url: ${LOGIN_URL}
 
@@ -39,6 +44,7 @@ app:
       update-password: ${ADMIN_SEED_UPDATE_PASSWORD:false}
   mail:
     from: ${EMAIL_FROM}
+
 
   jpa:
       defer-datasource-initialization: true

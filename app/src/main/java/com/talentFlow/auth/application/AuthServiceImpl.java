@@ -2,21 +2,18 @@ package com.talentFlow.auth.application;
 
 import com.talentFlow.auth.domain.PasswordResetToken;
 import com.talentFlow.auth.domain.User;
-import com.talentFlow.auth.domain.VerificationToken;
 import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.auth.domain.enums.UserStatus;
-import com.talentFlow.auth.infrastructure.mail.AuthMailService;
 import com.talentFlow.auth.infrastructure.repository.PasswordResetTokenRepository;
 import com.talentFlow.auth.infrastructure.repository.UserRepository;
-import com.talentFlow.auth.infrastructure.repository.VerificationTokenRepository;
 import com.talentFlow.auth.web.dto.AuthResponse;
 import com.talentFlow.auth.web.dto.LoginRequest;
+import com.talentFlow.auth.web.dto.LoginResponse;
 import com.talentFlow.auth.web.dto.RegisterRequest;
 import com.talentFlow.auth.web.dto.RegisterResponse;
+import com.talentFlow.auth.infrastructure.security.JwtService;
 import com.talentFlow.common.exception.ApiException;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,15 +22,12 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -41,21 +35,10 @@ import java.util.UUID;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
-    private final VerificationTokenRepository verificationTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
-    private final AuthMailService authMailService;
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
-
-    @Value("${app.security.verification-token-expiry-hours:24}")
-    private long verificationTokenExpiryHours;
-
-
-
-
-    //VERIFICATION_TOKEN_FRONTEND_URL
-    @Value("${app.security.verification-token-frontend-url}")
-    private String verificationTokenFrontendUrl;
+    private final JwtService jwtService;
 
     @Value("${app.security.password-reset-expiry-hours:2}")
     private long passwordResetExpiryHours;
@@ -74,33 +57,24 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRole(RoleName.INTERN);
-        user.setStatus(UserStatus.PENDING_VERIFICATION);
-        user.setEmailVerified(false);
+        user.setStatus(UserStatus.ACTIVE);
         user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
 
         User savedUser = userRepository.save(user);
-
-        VerificationToken token = new VerificationToken();
-        token.setUser(savedUser);
-        token.setToken(UUID.randomUUID().toString());
-        token.setExpiresAt(LocalDateTime.now().plusHours(verificationTokenExpiryHours));
-        verificationTokenRepository.save(token);
-
-        String verificationLink = verificationTokenFrontendUrl + "?token=" + token.getToken();
-        authMailService.sendVerificationEmail(savedUser.getEmail(), savedUser.getFirstName(), verificationLink);
 
         return new RegisterResponse(
                 savedUser.getId(),
                 savedUser.getEmail(),
-                "User registered successfully. Verify the email before login."
+                "User registered successfully."
         );
     }
 
     @Override
     @Transactional
-    public AuthResponse login(LoginRequest request, HttpServletRequest httpServletRequest) {
+    public LoginResponse login(LoginRequest request) {
         try {
-            Authentication authentication = authenticationManager.authenticate(
+            authenticationManager.authenticate(
                     UsernamePasswordAuthenticationToken.unauthenticated(
                             request.email().trim().toLowerCase(),
                             request.password()
@@ -110,18 +84,17 @@ public class AuthServiceImpl implements AuthService {
             User user = userRepository.findByEmailIgnoreCase(request.email().trim().toLowerCase())
                     .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
 
-            SecurityContext context = SecurityContextHolder.createEmptyContext();
-            context.setAuthentication(authentication);
-            SecurityContextHolder.setContext(context);
-            httpServletRequest.getSession(true).setAttribute(
-                    HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
-                    context
-            );
-
             user.setLastLoginAt(LocalDateTime.now());
             user.setFailedLoginAttempts(0);
+            User savedUser = userRepository.save(user);
+            String accessToken = jwtService.generateToken(savedUser.getEmail());
 
-            return toAuthResponse(userRepository.save(user));
+            return new LoginResponse(
+                    accessToken,
+                    "Bearer",
+                    jwtService.getExpirationSeconds(),
+                    toAuthResponse(savedUser)
+            );
         } catch (BadCredentialsException exception) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         } catch (DisabledException exception) {
@@ -129,28 +102,6 @@ public class AuthServiceImpl implements AuthService {
         } catch (LockedException exception) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Account is locked");
         }
-    }
-
-    @Override
-    @Transactional
-    public void verifyEmail(String tokenValue) {
-        VerificationToken token = verificationTokenRepository.findByToken(tokenValue)
-                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Invalid verification token"));
-
-        if (token.getUsedAt() != null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Verification token has already been used");
-        }
-        if (token.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Verification token has expired");
-        }
-
-        User user = token.getUser();
-        user.setEmailVerified(true);
-        user.setStatus(UserStatus.ACTIVE);
-        token.setUsedAt(LocalDateTime.now());
-
-        userRepository.save(user);
-        verificationTokenRepository.save(token);
     }
 
     @Override
@@ -165,11 +116,8 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void logout(HttpServletRequest request) {
+    public void logout() {
         SecurityContextHolder.clearContext();
-        if (request.getSession(false) != null) {
-            request.getSession(false).invalidate();
-        }
     }
 
     @Override
@@ -213,7 +161,6 @@ public class AuthServiceImpl implements AuthService {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getRole().name(),
-                user.isEmailVerified(),
                 user.getStatus().name()
         );
     }

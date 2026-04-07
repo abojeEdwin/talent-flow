@@ -12,7 +12,8 @@ This repository includes a Render Blueprint at [render.yaml](render.yaml).
 4. Set all `sync: false` environment variables in Render before first deploy:
    - `CORS_ALLOWED_ORIGINS`
    - `RESEND_API_KEY`, `EMAIL_FROM`
-   - `VERIFICATION_TOKEN_FRONTEND_URL`, `PASSWORD_RESET_FRONTEND_URL`, `LOGIN_URL`
+   - `JWT_SECRET` (32+ characters), optional `JWT_EXPIRATION_MINUTES`
+   - `PASSWORD_RESET_FRONTEND_URL`, `LOGIN_URL`
    - `S3_BUCKET_ACCESS_KEY`, `S3_BUCKET_SECRET_KEY`, `S3_BUCKET_NAME` (and region if needed)
    - `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD` (only if `ADMIN_SEED_ENABLED=true`)
 5. Deploy.

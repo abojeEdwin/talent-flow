@@ -9,7 +9,6 @@ public record AdminUserSummaryResponse(
         String firstName,
         String lastName,
         String status,
-        boolean emailVerified,
         String role,
         LocalDateTime lastLoginAt
 ) {

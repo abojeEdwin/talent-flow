@@ -18,11 +18,6 @@ public class AuthMailServiceImpl implements AuthMailService {
     private final OutboundEmailJobRepository outboundEmailJobRepository;
 
     @Override
-    public void sendVerificationEmail(String recipientEmail, String recipientName, String verificationLink) {
-        enqueue(EmailJobType.VERIFICATION, recipientEmail, recipientName, verificationLink, null, null);
-    }
-
-    @Override
     public void sendInstructorWelcomeEmail(String recipientEmail, String recipientName, String temporaryPassword, String loginUrl) {
         enqueue(EmailJobType.INSTRUCTOR_WELCOME, recipientEmail, recipientName, null, temporaryPassword, loginUrl);
     }

@@ -20,11 +20,13 @@ public class OutboundEmailWorker {
 
     private final OutboundEmailJobRepository outboundEmailJobRepository;
 
-    //app.mail.from:no-reply@talentflow.local
-    @Value("${EMAIL_FROM}")
+
+    //EMAIL_FROM
+    @Value("${app.mail.from:onboarding@resend.dev}")
     private String fromAddress;
 
-    @Value("${RESEND_API_KEY:}")
+    //RESEND_API_KEY
+    @Value("${app.mail.resend-api-key}")
     private String resendApiKey;
 
     @Scheduled(fixedDelay = 5000)
@@ -63,6 +65,14 @@ public class OutboundEmailWorker {
             job.setStatus(EmailJobStatus.PROCESSING);
             job.setAttempts(job.getAttempts() + 1);
             outboundEmailJobRepository.save(job);
+
+            if (job.getType() == EmailJobType.VERIFICATION) {
+                job.setStatus(EmailJobStatus.COMPLETED);
+                job.setLastError("Email verification is disabled");
+                outboundEmailJobRepository.save(job);
+                log.info("Skipped legacy verification email job {} because verification is disabled", job.getId());
+                return;
+            }
 
             Resend resend = new Resend(resolveResendApiKey());
             CreateEmailOptions email = CreateEmailOptions.builder()

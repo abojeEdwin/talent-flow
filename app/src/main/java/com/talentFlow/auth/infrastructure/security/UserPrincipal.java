@@ -41,7 +41,7 @@ public class UserPrincipal implements UserDetails {
         Set<SimpleGrantedAuthority> authorities = new HashSet<>();
         authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
 
-        boolean enabled = user.isEmailVerified() && user.getStatus() == UserStatus.ACTIVE;
+        boolean enabled = user.getStatus() == UserStatus.ACTIVE;
         boolean accountNonLocked = user.getStatus() != UserStatus.LOCKED
                 && (user.getLockedUntil() == null || user.getLockedUntil().isBefore(LocalDateTime.now()));
 

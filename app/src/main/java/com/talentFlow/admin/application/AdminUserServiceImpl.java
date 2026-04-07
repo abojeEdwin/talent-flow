@@ -77,7 +77,6 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (newStatus == UserStatus.ACTIVE) {
             user.setLockedUntil(null);
             user.setFailedLoginAttempts(0);
-            user.setEmailVerified(true);
         }
 
         User saved = userRepository.save(user);
@@ -101,7 +100,6 @@ public class AdminUserServiceImpl implements AdminUserService {
         instructor.setLastName(request.lastName().trim());
         instructor.setPasswordHash(passwordEncoder.encode(temporaryPassword));
         instructor.setRole(RoleName.INSTRUCTOR);
-        instructor.setEmailVerified(true);
         instructor.setStatus(UserStatus.ACTIVE);
         instructor.setFailedLoginAttempts(0);
 
@@ -182,7 +180,6 @@ public class AdminUserServiceImpl implements AdminUserService {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getStatus().name(),
-                user.isEmailVerified(),
                 user.getRole().name(),
                 user.getLastLoginAt()
         );
@@ -195,7 +192,6 @@ public class AdminUserServiceImpl implements AdminUserService {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getStatus().name(),
-                user.isEmailVerified(),
                 user.getFailedLoginAttempts(),
                 user.getLockedUntil(),
                 user.getLastLoginAt(),

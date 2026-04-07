@@ -40,9 +40,6 @@ public class User extends BaseEntity {
     private UserStatus status;
 
     @Column(nullable = false)
-    private boolean emailVerified;
-
-    @Column(nullable = false)
     private int failedLoginAttempts;
 
     private LocalDateTime lockedUntil;

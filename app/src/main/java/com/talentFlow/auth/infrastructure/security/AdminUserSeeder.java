@@ -61,7 +61,6 @@ public class AdminUserSeeder implements CommandLineRunner {
                         created.setPasswordHash(passwordEncoder.encode(adminPassword));
                         created.setRole(RoleName.ADMIN);
                         created.setStatus(UserStatus.ACTIVE);
-                        created.setEmailVerified(true);
                         created.setFailedLoginAttempts(0);
                         created.setLockedUntil(null);
                         return created;
@@ -78,10 +77,6 @@ public class AdminUserSeeder implements CommandLineRunner {
             }
             if (user.getStatus() != UserStatus.ACTIVE) {
                 user.setStatus(UserStatus.ACTIVE);
-                changed = true;
-            }
-            if (!user.isEmailVerified()) {
-                user.setEmailVerified(true);
                 changed = true;
             }
             if (updatePassword) {
