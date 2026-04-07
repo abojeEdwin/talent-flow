@@ -9,7 +9,6 @@ public record AdminUserDetailResponse(
         String firstName,
         String lastName,
         String status,
-        boolean emailVerified,
         int failedLoginAttempts,
         LocalDateTime lockedUntil,
         LocalDateTime lastLoginAt,

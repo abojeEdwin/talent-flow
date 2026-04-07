@@ -35,9 +35,14 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final AuthService authService;
     private final PasswordEncoder passwordEncoder;
 
+
+
+    //PASSWORD_RESET_FRONTEND_URL
     @Value("${app.security.password-reset-frontend-url}")
     private String passwordResetFrontendUrl;
 
+
+    //LOGIN_URL
     @Value("${app.security.login-url}")
     private String loginUrl;
 
@@ -95,7 +100,6 @@ public class AdminUserServiceImpl implements AdminUserService {
         instructor.setLastName(request.lastName().trim());
         instructor.setPasswordHash(passwordEncoder.encode(temporaryPassword));
         instructor.setRole(RoleName.INSTRUCTOR);
-        instructor.setEmailVerified(true);
         instructor.setStatus(UserStatus.ACTIVE);
         instructor.setFailedLoginAttempts(0);
 
@@ -176,7 +180,6 @@ public class AdminUserServiceImpl implements AdminUserService {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getStatus().name(),
-                user.isEmailVerified(),
                 user.getRole().name(),
                 user.getLastLoginAt()
         );
@@ -189,7 +192,6 @@ public class AdminUserServiceImpl implements AdminUserService {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getStatus().name(),
-                user.isEmailVerified(),
                 user.getFailedLoginAttempts(),
                 user.getLockedUntil(),
                 user.getLastLoginAt(),
