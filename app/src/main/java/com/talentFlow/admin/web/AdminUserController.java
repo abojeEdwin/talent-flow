@@ -49,6 +49,15 @@ public class AdminUserController {
         return adminUserService.listUsers(query, status, pageable);
     }
 
+    @GetMapping("/instructors")
+    public Page<AdminUserSummaryResponse> listInstructors(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) UserStatus status,
+            Pageable pageable
+    ) {
+        return adminUserService.listInstructors(query, status, pageable);
+    }
+
     @GetMapping("/{userId}")
     public AdminUserDetailResponse getUser(@PathVariable UUID userId) {
         return adminUserService.getUser(userId);

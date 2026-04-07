@@ -14,6 +14,7 @@ import com.talentFlow.auth.infrastructure.mail.AuthMailService;
 import com.talentFlow.auth.infrastructure.repository.UserRepository;
 import com.talentFlow.common.exception.ApiException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,6 +27,7 @@ import java.security.SecureRandom;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AdminUserServiceImpl implements AdminUserService {
 
@@ -62,6 +64,30 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<AdminUserSummaryResponse> listInstructors(String query, UserStatus status, Pageable pageable) {
+        Page<User> instructors;
+        if (query != null && !query.isBlank()) {
+            String trimmedQuery = query.trim();
+            if (status != null) {
+                instructors = userRepository.searchByRoleAndStatusAndQuery(
+                        RoleName.INSTRUCTOR,
+                        status,
+                        trimmedQuery,
+                        pageable
+                );
+            } else {
+                instructors = userRepository.searchByRoleAndQuery(RoleName.INSTRUCTOR, trimmedQuery, pageable);
+            }
+        } else if (status != null) {
+            instructors = userRepository.findByRoleAndStatus(RoleName.INSTRUCTOR, status, pageable);
+        } else {
+            instructors = userRepository.findByRole(RoleName.INSTRUCTOR, pageable);
+        }
+        return instructors.map(this::toSummaryResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public AdminUserDetailResponse getUser(UUID userId) {
         User user = getUserOrThrow(userId);
         return toDetailResponse(user);
@@ -94,6 +120,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
 
         String temporaryPassword = generateTemporaryPassword();
+        log.info(temporaryPassword);
         User instructor = new User();
         instructor.setEmail(email);
         instructor.setFirstName(request.firstName().trim());
