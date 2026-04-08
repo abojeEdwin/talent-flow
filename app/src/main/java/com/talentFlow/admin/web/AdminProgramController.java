@@ -2,6 +2,7 @@ package com.talentFlow.admin.web;
 
 import com.talentFlow.admin.application.AdminProgramService;
 import com.talentFlow.admin.web.dto.AllocateUserToTeamRequest;
+import com.talentFlow.admin.web.dto.AutoAllocateTeamMembersResponse;
 import com.talentFlow.admin.web.dto.CohortResponse;
 import com.talentFlow.admin.web.dto.CreateCohortRequest;
 import com.talentFlow.admin.web.dto.CreateProjectTeamRequest;
@@ -62,6 +63,14 @@ public class AdminProgramController {
             Authentication authentication
     ) {
         return adminProgramService.allocateUserToTeam(teamId, request, getActor(authentication));
+    }
+
+    @PostMapping("/teams/{teamId}/members/auto-allocate")
+    public AutoAllocateTeamMembersResponse autoAllocateMembers(
+            @PathVariable UUID teamId,
+            Authentication authentication
+    ) {
+        return adminProgramService.autoAllocateUnallocatedInterns(teamId, getActor(authentication));
     }
 
     @GetMapping("/cohorts/{cohortId}/teams")

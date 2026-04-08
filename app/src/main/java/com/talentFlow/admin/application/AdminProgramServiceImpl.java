@@ -10,25 +10,30 @@ import com.talentFlow.admin.infrastructure.repository.CohortRepository;
 import com.talentFlow.admin.infrastructure.repository.ProjectTeamRepository;
 import com.talentFlow.admin.infrastructure.repository.TeamMemberRepository;
 import com.talentFlow.admin.web.dto.AllocateUserToTeamRequest;
+import com.talentFlow.admin.web.dto.AutoAllocateTeamMembersResponse;
 import com.talentFlow.admin.web.dto.CohortResponse;
 import com.talentFlow.admin.web.dto.CreateCohortRequest;
 import com.talentFlow.admin.web.dto.CreateProjectTeamRequest;
 import com.talentFlow.admin.web.dto.ProjectTeamResponse;
 import com.talentFlow.admin.web.dto.TeamMemberResponse;
 import com.talentFlow.auth.domain.User;
+import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.auth.infrastructure.repository.UserRepository;
 import com.talentFlow.common.exception.ApiException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class AdminProgramServiceImpl implements AdminProgramService {
+    private static final int MAX_TEAM_SIZE = 10;
 
     private final CohortRepository cohortRepository;
     private final ProjectTeamRepository projectTeamRepository;
@@ -99,6 +104,12 @@ public class AdminProgramServiceImpl implements AdminProgramService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
 
         TeamMemberId id = new TeamMemberId(team.getId(), user.getId());
+        boolean alreadyMember = teamMemberRepository.existsById(id);
+        long currentTeamSize = teamMemberRepository.countByTeam_Id(teamId);
+        if (!alreadyMember && currentTeamSize >= MAX_TEAM_SIZE) {
+            throw new ApiException(HttpStatus.CONFLICT, "Team has reached max capacity of " + MAX_TEAM_SIZE);
+        }
+
         TeamMember member = teamMemberRepository.findById(id).orElseGet(TeamMember::new);
         member.setId(id);
         member.setTeam(team);
@@ -114,6 +125,58 @@ public class AdminProgramServiceImpl implements AdminProgramService {
                 user.getEmail(),
                 user.getFirstName() + " " + user.getLastName(),
                 saved.getTeamRole()
+        );
+    }
+
+    @Override
+    @Transactional
+    public AutoAllocateTeamMembersResponse autoAllocateUnallocatedInterns(UUID teamId, User actor) {
+        ProjectTeam team = projectTeamRepository.findById(teamId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Team not found"));
+
+        long currentTeamSize = teamMemberRepository.countByTeam_Id(teamId);
+        if (currentTeamSize > 0) {
+            throw new ApiException(HttpStatus.CONFLICT, "Team already has members; auto-allocation only supports empty teams");
+        }
+        if (currentTeamSize >= MAX_TEAM_SIZE) {
+            throw new ApiException(HttpStatus.CONFLICT, "Team has reached max capacity of " + MAX_TEAM_SIZE);
+        }
+
+        int slotsToFill = (int) (MAX_TEAM_SIZE - currentTeamSize);
+        List<User> unallocatedInterns = userRepository.findUnallocatedInterns(
+                RoleName.INTERN,
+                PageRequest.of(0, slotsToFill)
+        ).getContent();
+
+        if (unallocatedInterns.isEmpty()) {
+            throw new ApiException(HttpStatus.CONFLICT, "No unallocated interns available");
+        }
+
+        List<TeamMemberResponse> allocatedMembers = new ArrayList<>();
+        for (User intern : unallocatedInterns) {
+            TeamMember member = new TeamMember();
+            member.setId(new TeamMemberId(team.getId(), intern.getId()));
+            member.setTeam(team);
+            member.setUser(intern);
+            member.setTeamRole("INTERN");
+            teamMemberRepository.save(member);
+
+            allocatedMembers.add(new TeamMemberResponse(
+                    intern.getId(),
+                    intern.getEmail(),
+                    intern.getFirstName() + " " + intern.getLastName(),
+                    "INTERN"
+            ));
+        }
+
+        writeAudit(actor, "TEAM_AUTO_ALLOCATED", "TEAM", team.getId(),
+                "Auto-allocated " + allocatedMembers.size() + " unallocated interns");
+
+        return new AutoAllocateTeamMembersResponse(
+                team.getId(),
+                allocatedMembers.size(),
+                MAX_TEAM_SIZE,
+                allocatedMembers
         );
     }
 
