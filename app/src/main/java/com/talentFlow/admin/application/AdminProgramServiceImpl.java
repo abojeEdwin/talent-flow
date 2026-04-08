@@ -182,6 +182,22 @@ public class AdminProgramServiceImpl implements AdminProgramService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<TeamMemberResponse> listTeamMembers(UUID teamId) {
+        projectTeamRepository.findById(teamId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Team not found"));
+
+        return teamMemberRepository.findByTeam_IdOrderByCreatedAtAsc(teamId).stream()
+                .map(member -> new TeamMemberResponse(
+                        member.getUser().getId(),
+                        member.getUser().getEmail(),
+                        member.getUser().getFirstName() + " " + member.getUser().getLastName(),
+                        member.getTeamRole()
+                ))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<ProjectTeamResponse> listCohortTeams(UUID cohortId) {
         return projectTeamRepository.findByCohortId(cohortId).stream().map(this::toTeamResponse).toList();
     }

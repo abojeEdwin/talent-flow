@@ -73,6 +73,11 @@ public class AdminProgramController {
         return adminProgramService.autoAllocateUnallocatedInterns(teamId, getActor(authentication));
     }
 
+    @GetMapping("/teams/{teamId}/members")
+    public List<TeamMemberResponse> listTeamMembers(@PathVariable UUID teamId) {
+        return adminProgramService.listTeamMembers(teamId);
+    }
+
     @GetMapping("/cohorts/{cohortId}/teams")
     public List<ProjectTeamResponse> listCohortTeams(@PathVariable UUID cohortId) {
         return adminProgramService.listCohortTeams(cohortId);

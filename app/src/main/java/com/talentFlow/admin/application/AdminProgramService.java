@@ -25,5 +25,7 @@ public interface AdminProgramService {
 
     AutoAllocateTeamMembersResponse autoAllocateUnallocatedInterns(UUID teamId, User actor);
 
+    List<TeamMemberResponse> listTeamMembers(UUID teamId);
+
     List<ProjectTeamResponse> listCohortTeams(UUID cohortId);
 }
