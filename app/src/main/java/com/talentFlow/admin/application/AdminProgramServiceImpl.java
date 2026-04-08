@@ -85,6 +85,12 @@ public class AdminProgramServiceImpl implements AdminProgramService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<ProjectTeamResponse> listAllProjectTeams() {
+        return projectTeamRepository.findAll().stream().map(this::toTeamResponse).toList();
+    }
+
+    @Override
     @Transactional
     public TeamMemberResponse allocateUserToTeam(UUID teamId, AllocateUserToTeamRequest request, User actor) {
         ProjectTeam team = projectTeamRepository.findById(teamId)
