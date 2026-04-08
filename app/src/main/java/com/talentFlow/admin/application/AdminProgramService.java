@@ -1,6 +1,7 @@
 package com.talentFlow.admin.application;
 
 import com.talentFlow.admin.web.dto.AllocateUserToTeamRequest;
+import com.talentFlow.admin.web.dto.AutoAllocateTeamMembersResponse;
 import com.talentFlow.admin.web.dto.CohortResponse;
 import com.talentFlow.admin.web.dto.CreateCohortRequest;
 import com.talentFlow.admin.web.dto.CreateProjectTeamRequest;
@@ -21,6 +22,8 @@ public interface AdminProgramService {
     List<ProjectTeamResponse> listAllProjectTeams();
 
     TeamMemberResponse allocateUserToTeam(UUID teamId, AllocateUserToTeamRequest request, User actor);
+
+    AutoAllocateTeamMembersResponse autoAllocateUnallocatedInterns(UUID teamId, User actor);
 
     List<ProjectTeamResponse> listCohortTeams(UUID cohortId);
 }
