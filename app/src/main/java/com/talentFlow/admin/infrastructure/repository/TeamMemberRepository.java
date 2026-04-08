@@ -10,6 +10,8 @@ import java.util.UUID;
 public interface TeamMemberRepository extends JpaRepository<TeamMember, TeamMemberId> {
     List<TeamMember> findByTeam_Id(UUID teamId);
 
+    List<TeamMember> findByTeam_IdOrderByCreatedAtAsc(UUID teamId);
+
     List<TeamMember> findByTeam_Cohort_Id(UUID cohortId);
 
     long countByTeam_Id(UUID teamId);
