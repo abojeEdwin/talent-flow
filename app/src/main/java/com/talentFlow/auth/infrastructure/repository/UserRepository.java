@@ -34,6 +34,46 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("""
             SELECT u FROM User u
             WHERE u.role = :role
+              AND NOT EXISTS (
+                    SELECT tm FROM TeamMember tm
+                    WHERE tm.user = u
+              )
+            """)
+    Page<User> findUnallocatedInterns(@Param("role") RoleName role, Pageable pageable);
+
+    @Query("""
+            SELECT u FROM User u
+            WHERE u.role = :role
+              AND u.status = :status
+              AND NOT EXISTS (
+                    SELECT tm FROM TeamMember tm
+                    WHERE tm.user = u
+              )
+            """)
+    Page<User> findUnallocatedInternsByStatus(@Param("role") RoleName role,
+                                              @Param("status") UserStatus status,
+                                              Pageable pageable);
+
+    @Query("""
+            SELECT u FROM User u
+            WHERE u.role = :role
+              AND NOT EXISTS (
+                    SELECT tm FROM TeamMember tm
+                    WHERE tm.user = u
+              )
+              AND (
+                    lower(u.email) LIKE lower(concat('%', :query, '%'))
+                 OR lower(u.firstName) LIKE lower(concat('%', :query, '%'))
+                 OR lower(u.lastName) LIKE lower(concat('%', :query, '%'))
+              )
+            """)
+    Page<User> searchUnallocatedInternsByQuery(@Param("role") RoleName role,
+                                               @Param("query") String query,
+                                               Pageable pageable);
+
+    @Query("""
+            SELECT u FROM User u
+            WHERE u.role = :role
               AND (
                     lower(u.email) LIKE lower(concat('%', :query, '%'))
                  OR lower(u.firstName) LIKE lower(concat('%', :query, '%'))
@@ -41,6 +81,25 @@ public interface UserRepository extends JpaRepository<User, UUID> {
               )
             """)
     Page<User> searchByRoleAndQuery(@Param("role") RoleName role, @Param("query") String query, Pageable pageable);
+
+    @Query("""
+            SELECT u FROM User u
+            WHERE u.role = :role
+              AND u.status = :status
+              AND NOT EXISTS (
+                    SELECT tm FROM TeamMember tm
+                    WHERE tm.user = u
+              )
+              AND (
+                    lower(u.email) LIKE lower(concat('%', :query, '%'))
+                 OR lower(u.firstName) LIKE lower(concat('%', :query, '%'))
+                 OR lower(u.lastName) LIKE lower(concat('%', :query, '%'))
+              )
+            """)
+    Page<User> searchUnallocatedInternsByStatusAndQuery(@Param("role") RoleName role,
+                                                        @Param("status") UserStatus status,
+                                                        @Param("query") String query,
+                                                        Pageable pageable);
 
     @Query("""
             SELECT u FROM User u

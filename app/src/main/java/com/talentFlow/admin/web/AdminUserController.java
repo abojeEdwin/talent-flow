@@ -58,6 +58,15 @@ public class AdminUserController {
         return adminUserService.listInstructors(query, status, pageable);
     }
 
+    @GetMapping("/interns/unallocated")
+    public Page<AdminUserSummaryResponse> listUnallocatedInterns(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) UserStatus status,
+            Pageable pageable
+    ) {
+        return adminUserService.listUnallocatedInterns(query, status, pageable);
+    }
+
     @GetMapping("/{userId}")
     public AdminUserDetailResponse getUser(@PathVariable UUID userId) {
         return adminUserService.getUser(userId);

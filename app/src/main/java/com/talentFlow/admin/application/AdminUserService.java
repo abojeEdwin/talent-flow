@@ -17,6 +17,8 @@ public interface AdminUserService {
 
     Page<AdminUserSummaryResponse> listInstructors(String query, UserStatus status, Pageable pageable);
 
+    Page<AdminUserSummaryResponse> listUnallocatedInterns(String query, UserStatus status, Pageable pageable);
+
     AdminUserDetailResponse getUser(UUID userId);
 
     AdminUserDetailResponse updateUserStatus(UUID userId, UserStatus newStatus, User actor);

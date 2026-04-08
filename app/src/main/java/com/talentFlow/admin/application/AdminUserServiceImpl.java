@@ -88,6 +88,30 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<AdminUserSummaryResponse> listUnallocatedInterns(String query, UserStatus status, Pageable pageable) {
+        Page<User> interns;
+        if (query != null && !query.isBlank()) {
+            String trimmedQuery = query.trim();
+            if (status != null) {
+                interns = userRepository.searchUnallocatedInternsByStatusAndQuery(
+                        RoleName.INTERN,
+                        status,
+                        trimmedQuery,
+                        pageable
+                );
+            } else {
+                interns = userRepository.searchUnallocatedInternsByQuery(RoleName.INTERN, trimmedQuery, pageable);
+            }
+        } else if (status != null) {
+            interns = userRepository.findUnallocatedInternsByStatus(RoleName.INTERN, status, pageable);
+        } else {
+            interns = userRepository.findUnallocatedInterns(RoleName.INTERN, pageable);
+        }
+        return interns.map(this::toSummaryResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public AdminUserDetailResponse getUser(UUID userId) {
         User user = getUserOrThrow(userId);
         return toDetailResponse(user);
