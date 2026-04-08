@@ -18,6 +18,8 @@ public interface AdminProgramService {
 
     ProjectTeamResponse createProjectTeam(CreateProjectTeamRequest request, User actor);
 
+    List<ProjectTeamResponse> listAllProjectTeams();
+
     TeamMemberResponse allocateUserToTeam(UUID teamId, AllocateUserToTeamRequest request, User actor);
 
     List<ProjectTeamResponse> listCohortTeams(UUID cohortId);

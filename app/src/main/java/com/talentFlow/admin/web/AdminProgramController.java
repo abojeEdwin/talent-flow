@@ -50,6 +50,11 @@ public class AdminProgramController {
         return adminProgramService.createProjectTeam(request, getActor(authentication));
     }
 
+    @GetMapping("/teams")
+    public List<ProjectTeamResponse> listAllProjectTeams() {
+        return adminProgramService.listAllProjectTeams();
+    }
+
     @PostMapping("/teams/{teamId}/members")
     public TeamMemberResponse allocateMember(
             @PathVariable UUID teamId,
