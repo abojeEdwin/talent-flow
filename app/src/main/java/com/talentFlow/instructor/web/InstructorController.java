@@ -60,7 +60,7 @@ public class InstructorController {
         return instructorService.createCourseWithMedia(title, description, coverImage, introVideo, getActor(authentication));
     }
 
-    @GetMapping("/courses")
+    @GetMapping("/my-courses")
     public List<CourseResponse> listMyCourses(Authentication authentication) {
         return instructorService.listMyCourses(getActor(authentication));
     }
