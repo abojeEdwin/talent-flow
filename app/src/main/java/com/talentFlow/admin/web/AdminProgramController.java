@@ -83,6 +83,11 @@ public class AdminProgramController {
         return adminProgramService.listCohortTeams(cohortId);
     }
 
+    @GetMapping("/allocated-interns")
+    public List<TeamMemberResponse> listAllAllocatedInterns() {
+        return adminProgramService.listAllAllocatedInterns();
+    }
+
     private User getActor(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails userDetails)) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Not an authenticated user");
