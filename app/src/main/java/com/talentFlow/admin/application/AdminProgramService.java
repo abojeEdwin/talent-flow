@@ -28,4 +28,6 @@ public interface AdminProgramService {
     List<TeamMemberResponse> listTeamMembers(UUID teamId);
 
     List<ProjectTeamResponse> listCohortTeams(UUID cohortId);
+
+    List<TeamMemberResponse> listAllAllocatedInterns();
 }

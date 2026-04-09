@@ -202,6 +202,18 @@ public class AdminProgramServiceImpl implements AdminProgramService {
         return projectTeamRepository.findByCohortId(cohortId).stream().map(this::toTeamResponse).toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<TeamMemberResponse> listAllAllocatedInterns() {
+        List<TeamMemberResponse> allAllocatedInterns = new ArrayList<>();
+        List<ProjectTeamResponse> allTeams = listAllProjectTeams();
+
+        for (ProjectTeamResponse team : allTeams) {
+            allAllocatedInterns.addAll(listTeamMembers(team.id()));
+        }
+        return allAllocatedInterns;
+    }
+
     private CohortResponse toCohortResponse(Cohort cohort) {
         return new CohortResponse(
                 cohort.getId(),
