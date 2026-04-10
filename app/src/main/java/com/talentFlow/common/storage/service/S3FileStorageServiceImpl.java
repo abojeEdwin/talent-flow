@@ -1,6 +1,8 @@
 package com.talentFlow.common.storage.service;
 
+import com.amazonaws.HttpMethod;
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.talentFlow.common.exception.ApiException;
 import com.talentFlow.common.storage.config.S3Properties;
@@ -12,6 +14,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ByteArrayInputStream;
+import java.time.Instant;
+import java.util.Date;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -64,6 +68,22 @@ public class S3FileStorageServiceImpl implements FileStorageService {
         } catch (Exception exception) {
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload file to S3");
         }
+    }
+
+    @Override
+    public String generatePresignedUrl(String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Object key cannot be empty");
+        }
+
+        Date expiration = Date.from(Instant.now().plusSeconds(300)); // 5 minutes expiration
+
+        GeneratePresignedUrlRequest generatePresignedUrlRequest =
+                new GeneratePresignedUrlRequest(s3Properties.getS3BucketName(), objectKey)
+                        .withMethod(HttpMethod.GET)
+                        .withExpiration(expiration);
+
+        return amazonS3.generatePresignedUrl(generatePresignedUrlRequest).toString();
     }
 
     private String buildObjectKey(String folder, String originalFilename) {
