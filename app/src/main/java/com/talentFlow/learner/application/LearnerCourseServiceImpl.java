@@ -2,6 +2,7 @@ package com.talentFlow.learner.application;
 
 import com.talentFlow.auth.domain.User;
 import com.talentFlow.common.exception.ApiException;
+import com.talentFlow.common.storage.service.FileStorageService;
 import com.talentFlow.course.domain.Course;
 import com.talentFlow.course.domain.CourseEnrollment;
 import com.talentFlow.course.domain.CourseModule;
@@ -28,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -47,6 +49,7 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     private final LessonRepository lessonRepository;
     private final LessonProgressRepository lessonProgressRepository;
     private final ProgressTrackingService progressTrackingService;
+    private final FileStorageService fileStorageService;
 
 
     @Override
@@ -157,6 +160,30 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
                 result.enrollmentStatus().name(),
                 result.certificateQueued()
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String getCourseCoverImagePresignedUrl(UUID courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Course not found"));
+
+        String coverImageUrl = course.getCoverImageUrl();
+        if (coverImageUrl == null || coverImageUrl.isBlank()) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Course has no cover image");
+        }
+
+        try {
+            URI uri = new URI(coverImageUrl);
+            String path = uri.getPath();
+            if (path == null || path.isBlank()) {
+                throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Invalid cover image URL");
+            }
+            String objectKey = path.startsWith("/") ? path.substring(1) : path;
+            return fileStorageService.generatePresignedUrl(objectKey);
+        } catch (Exception e) {
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to parse cover image URL");
+        }
     }
 
     private CourseResponse toCourseResponse(Course course) {

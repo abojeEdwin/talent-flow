@@ -19,4 +19,7 @@ public interface LearnerCourseService {
     CourseDetailResponse getCourseDetail(UUID courseId, User learner);
 
     LessonCompletionResponse completeLesson(UUID lessonId, User learner);
+
+    String getCourseCoverImagePresignedUrl(UUID courseId);
+
 }
