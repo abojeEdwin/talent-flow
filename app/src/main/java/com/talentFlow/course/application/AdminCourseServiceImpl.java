@@ -101,6 +101,8 @@ public class AdminCourseServiceImpl implements AdminCourseService {
         }
 
         courseInstructorRepository.deleteByCourse(course);
+        courseInstructorRepository.flush();
+
         for (UUID instructorId : allInstructorIds) {
             User instructor = getMentorUser(instructorId);
             CourseInstructor courseInstructor = new CourseInstructor();
