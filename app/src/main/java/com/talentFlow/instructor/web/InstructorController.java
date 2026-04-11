@@ -5,16 +5,16 @@ import com.talentFlow.auth.infrastructure.repository.UserRepository;
 import com.talentFlow.common.exception.ApiException;
 import com.talentFlow.course.web.dto.AssignmentFeedbackResponse;
 import com.talentFlow.course.web.dto.AssignmentResponse;
-import com.talentFlow.course.web.dto.CourseMaterialResponse;
 import com.talentFlow.course.web.dto.CourseModuleResponse;
 import com.talentFlow.course.web.dto.CourseResponse;
 import com.talentFlow.course.web.dto.CreateAssignmentRequest;
 import com.talentFlow.course.web.dto.CreateCourseModuleRequest;
 import com.talentFlow.course.web.dto.CreateCourseRequest;
+import com.talentFlow.course.web.dto.CreateLessonRequest;
 import com.talentFlow.course.web.dto.LearnerProgressResponse;
+import com.talentFlow.course.web.dto.LessonResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
-import com.talentFlow.course.web.dto.UploadMaterialRequest;
-import com.talentFlow.course.domain.enums.MaterialType;
+import com.talentFlow.course.domain.enums.LessonType;
 import com.talentFlow.instructor.application.InstructorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -67,26 +67,6 @@ public class InstructorController {
         return instructorService.listMyCourses(getActor(authentication));
     }
 
-    @PostMapping(value = "/courses/{courseId}/materials", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public CourseMaterialResponse uploadMaterial(
-            @PathVariable UUID courseId,
-            @Valid @RequestBody UploadMaterialRequest request,
-            Authentication authentication
-    ) {
-        return instructorService.uploadMaterial(courseId, request, getActor(authentication));
-    }
-
-    @PostMapping(value = "/courses/{courseId}/materials", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public CourseMaterialResponse uploadMaterialFile(
-            @PathVariable UUID courseId,
-            @RequestParam("title") String title,
-            @RequestParam("materialType") MaterialType materialType,
-            @RequestPart("file") MultipartFile file,
-            Authentication authentication
-    ) {
-        return instructorService.uploadMaterialFile(courseId, title, materialType, file, getActor(authentication));
-    }
-
     @PostMapping("/courses/{courseId}/modules")
     public CourseModuleResponse createCourseModule(
             @PathVariable UUID courseId,
@@ -94,6 +74,27 @@ public class InstructorController {
             Authentication authentication
     ) {
         return instructorService.createCourseModule(courseId, request, getActor(authentication));
+    }
+
+    @PostMapping(value = "/modules/{moduleId}/lessons", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public LessonResponse createLesson(
+            @PathVariable UUID moduleId,
+            @Valid @RequestBody CreateLessonRequest request,
+            Authentication authentication
+    ) {
+        return instructorService.createLesson(moduleId, request, getActor(authentication));
+    }
+
+    @PostMapping(value = "/modules/{moduleId}/lessons", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public LessonResponse createLessonWithFile(
+            @PathVariable UUID moduleId,
+            @RequestParam("title") String title,
+            @RequestParam("lessonType") LessonType lessonType,
+            @RequestParam("position") Integer position,
+            @RequestPart("file") MultipartFile file,
+            Authentication authentication
+    ) {
+        return instructorService.createLessonWithFile(moduleId, title, lessonType, position, file, getActor(authentication));
     }
 
     @PostMapping("/courses/{courseId}/assignments")

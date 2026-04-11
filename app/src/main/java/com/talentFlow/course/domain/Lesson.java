@@ -2,6 +2,7 @@ package com.talentFlow.course.domain;
 
 import com.talentFlow.common.BaseEntity;
 import com.talentFlow.course.domain.enums.LessonType;
+import com.talentFlow.course.domain.enums.LessonUploadStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -38,4 +39,8 @@ public class Lesson extends BaseEntity {
 
     @Column(nullable = false)
     private Integer position;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "upload_status", nullable = false, length = 30)
+    private LessonUploadStatus uploadStatus = LessonUploadStatus.COMPLETED;
 }

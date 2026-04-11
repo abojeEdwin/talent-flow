@@ -7,9 +7,12 @@ import com.talentFlow.common.storage.enums.MediaUploadTargetType;
 import com.talentFlow.common.storage.enums.UploadStatus;
 import com.talentFlow.course.domain.Course;
 import com.talentFlow.course.domain.CourseMaterial;
+import com.talentFlow.course.domain.Lesson;
+import com.talentFlow.course.domain.enums.LessonUploadStatus;
 import com.talentFlow.course.domain.enums.MaterialUploadStatus;
 import com.talentFlow.course.infrastructure.repository.CourseMaterialRepository;
 import com.talentFlow.course.infrastructure.repository.CourseRepository;
+import com.talentFlow.course.infrastructure.repository.LessonRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -28,6 +31,7 @@ public class MediaUploadWorker {
     private final FileStorageService fileStorageService;
     private final CourseRepository courseRepository;
     private final CourseMaterialRepository courseMaterialRepository;
+    private final LessonRepository lessonRepository;
 
 
     @Scheduled(fixedDelay = 5000)
@@ -88,6 +92,12 @@ public class MediaUploadWorker {
                 material.setUploadStatus(MaterialUploadStatus.COMPLETED);
                 courseMaterialRepository.save(material);
             }
+            case LESSON_CONTENT -> {
+                Lesson lesson = lessonRepository.findById(targetId).orElseThrow();
+                lesson.setContentUrl(uploadedUrl);
+                lesson.setUploadStatus(LessonUploadStatus.COMPLETED);
+                lessonRepository.save(lesson);
+            }
         }
     }
 
@@ -99,6 +109,11 @@ public class MediaUploadWorker {
                 courseMaterialRepository.findById(job.getTargetId()).ifPresent(material -> {
                     material.setUploadStatus(MaterialUploadStatus.FAILED);
                     courseMaterialRepository.save(material);
+                });
+            } else if (job.getTargetType() == MediaUploadTargetType.LESSON_CONTENT) {
+                lessonRepository.findById(job.getTargetId()).ifPresent(lesson -> {
+                    lesson.setUploadStatus(LessonUploadStatus.FAILED);
+                    lessonRepository.save(lesson);
                 });
             }
         } else {

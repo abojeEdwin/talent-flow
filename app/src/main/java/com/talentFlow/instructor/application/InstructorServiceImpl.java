@@ -11,32 +11,32 @@ import com.talentFlow.course.domain.AssignmentSubmission;
 import com.talentFlow.course.domain.Course;
 import com.talentFlow.course.domain.CourseEnrollment;
 import com.talentFlow.course.domain.CourseInstructor;
-import com.talentFlow.course.domain.CourseMaterial;
 import com.talentFlow.course.domain.CourseModule;
+import com.talentFlow.course.domain.Lesson;
 import com.talentFlow.course.domain.enums.CourseStatus;
 import com.talentFlow.course.domain.enums.EnrollmentStatus;
-import com.talentFlow.course.domain.enums.MaterialType;
-import com.talentFlow.course.domain.enums.MaterialUploadStatus;
+import com.talentFlow.course.domain.enums.LessonType;
+import com.talentFlow.course.domain.enums.LessonUploadStatus;
 import com.talentFlow.course.domain.enums.SubmissionStatus;
 import com.talentFlow.course.infrastructure.repository.AssignmentFeedbackRepository;
 import com.talentFlow.course.infrastructure.repository.AssignmentRepository;
 import com.talentFlow.course.infrastructure.repository.AssignmentSubmissionRepository;
 import com.talentFlow.course.infrastructure.repository.CourseEnrollmentRepository;
 import com.talentFlow.course.infrastructure.repository.CourseInstructorRepository;
-import com.talentFlow.course.infrastructure.repository.CourseMaterialRepository;
 import com.talentFlow.course.infrastructure.repository.CourseModuleRepository;
 import com.talentFlow.course.infrastructure.repository.CourseRepository;
+import com.talentFlow.course.infrastructure.repository.LessonRepository;
 import com.talentFlow.course.web.dto.AssignmentFeedbackResponse;
 import com.talentFlow.course.web.dto.AssignmentResponse;
-import com.talentFlow.course.web.dto.CourseMaterialResponse;
 import com.talentFlow.course.web.dto.CourseModuleResponse;
 import com.talentFlow.course.web.dto.CourseResponse;
 import com.talentFlow.course.web.dto.CreateAssignmentRequest;
 import com.talentFlow.course.web.dto.CreateCourseModuleRequest;
 import com.talentFlow.course.web.dto.CreateCourseRequest;
+import com.talentFlow.course.web.dto.CreateLessonRequest;
 import com.talentFlow.course.web.dto.LearnerProgressResponse;
+import com.talentFlow.course.web.dto.LessonResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
-import com.talentFlow.course.web.dto.UploadMaterialRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -57,8 +57,8 @@ public class InstructorServiceImpl implements InstructorService {
 
     private final CourseRepository courseRepository;
     private final CourseInstructorRepository courseInstructorRepository;
-    private final CourseMaterialRepository courseMaterialRepository;
     private final CourseModuleRepository courseModuleRepository;
+    private final LessonRepository lessonRepository;
     private final AssignmentRepository assignmentRepository;
     private final AssignmentSubmissionRepository assignmentSubmissionRepository;
     private final AssignmentFeedbackRepository assignmentFeedbackRepository;
@@ -130,75 +130,6 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
-    public CourseMaterialResponse uploadMaterial(UUID courseId, UploadMaterialRequest request, User actor) {
-        Course course = getCourseAndCheckInstructor(courseId, actor);
-        CourseMaterial material = new CourseMaterial();
-        material.setCourse(course);
-        material.setTitle(request.title().trim());
-        material.setMaterialType(request.materialType());
-        material.setContentUrl(request.contentUrl().trim());
-        material.setUploadStatus(MaterialUploadStatus.COMPLETED);
-        material.setUploadedByUser(actor);
-        CourseMaterial saved = courseMaterialRepository.save(material);
-        return new CourseMaterialResponse(
-                saved.getId(),
-                course.getId(),
-                saved.getTitle(),
-                saved.getMaterialType().name(),
-                saved.getContentUrl(),
-                saved.getUploadStatus().name(),
-                actor.getId()
-        );
-    }
-
-    @Override
-    @Transactional
-    public CourseMaterialResponse uploadMaterialFile(UUID courseId,
-                                                     String title,
-                                                     MaterialType materialType,
-                                                     MultipartFile file,
-                                                     User actor) {
-        if (title == null || title.isBlank()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Material title is required");
-        }
-        if (materialType == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Material type is required");
-        }
-        if (file == null || file.isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Material file is required");
-        }
-
-        Course course = getCourseAndCheckInstructor(courseId, actor);
-
-        CourseMaterial material = new CourseMaterial();
-        material.setCourse(course);
-        material.setTitle(title.trim());
-        material.setMaterialType(materialType);
-        material.setContentUrl(null);
-        material.setUploadStatus(MaterialUploadStatus.PENDING);
-        material.setUploadedByUser(actor);
-        CourseMaterial saved = courseMaterialRepository.save(material);
-
-        mediaUploadQueueService.enqueue(
-                MediaUploadTargetType.COURSE_MATERIAL,
-                saved.getId(),
-                "courses/" + courseId + "/materials",
-                file
-        );
-
-        return new CourseMaterialResponse(
-                saved.getId(),
-                course.getId(),
-                saved.getTitle(),
-                saved.getMaterialType().name(),
-                saved.getContentUrl(),
-                saved.getUploadStatus().name(),
-                actor.getId()
-        );
-    }
-
-    @Override
-    @Transactional
     public CourseModuleResponse createCourseModule(UUID courseId, CreateCourseModuleRequest request, User actor) {
         Course course = getCourseAndCheckInstructor(courseId, actor);
         CourseModule module = new CourseModule();
@@ -214,6 +145,61 @@ public class InstructorServiceImpl implements InstructorService {
                 saved.getPosition(),
                 new ArrayList<>()
         );
+    }
+
+    @Override
+    @Transactional
+    public LessonResponse createLesson(UUID moduleId, CreateLessonRequest request, User actor) {
+        CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
+        Lesson lesson = new Lesson();
+        lesson.setModule(module);
+        lesson.setTitle(request.title().trim());
+        lesson.setLessonType(request.lessonType());
+        lesson.setPosition(request.position());
+        lesson.setContentUrl(request.contentUrl());
+        lesson.setContentText(request.contentText());
+        lesson.setUploadStatus(LessonUploadStatus.COMPLETED);
+
+        Lesson saved = lessonRepository.save(lesson);
+        return toLessonResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public LessonResponse createLessonWithFile(UUID moduleId,
+                                                String title,
+                                                LessonType lessonType,
+                                                Integer position,
+                                                MultipartFile file,
+                                                User actor) {
+        if (title == null || title.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Lesson title is required");
+        }
+        if (lessonType == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Lesson type is required");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Lesson file is required");
+        }
+
+        CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
+
+        Lesson lesson = new Lesson();
+        lesson.setModule(module);
+        lesson.setTitle(title.trim());
+        lesson.setLessonType(lessonType);
+        lesson.setPosition(position);
+        lesson.setUploadStatus(LessonUploadStatus.PENDING);
+        Lesson saved = lessonRepository.save(lesson);
+
+        mediaUploadQueueService.enqueue(
+                MediaUploadTargetType.LESSON_CONTENT,
+                saved.getId(),
+                "courses/" + module.getCourse().getId() + "/lessons",
+                file
+        );
+
+        return toLessonResponse(saved);
     }
 
     @Override
@@ -315,6 +301,18 @@ public class InstructorServiceImpl implements InstructorService {
         return course;
     }
 
+    private CourseModule getModuleAndCheckInstructor(UUID moduleId, User actor) {
+        ensureInstructor(actor);
+        CourseModule module = courseModuleRepository.findById(moduleId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Module not found"));
+        Course course = module.getCourse();
+        boolean isCourseInstructor = courseInstructorRepository.findByCourseAndInstructorUser(course, actor).isPresent();
+        if (!isCourseInstructor && !isAdmin(actor)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
+        }
+        return module;
+    }
+
     private void ensureInstructor(User actor) {
         boolean instructor = actor.getRole() == RoleName.INSTRUCTOR || actor.getRole() == RoleName.ADMIN;
         if (!instructor) {
@@ -342,6 +340,18 @@ public class InstructorServiceImpl implements InstructorService {
                 course.getArchivedAt(),
                 course.getCreatedByUser().getId(),
                 instructorIds
+        );
+    }
+
+    private LessonResponse toLessonResponse(Lesson lesson) {
+        return new LessonResponse(
+                lesson.getId(),
+                lesson.getTitle(),
+                lesson.getLessonType().name(),
+                lesson.getPosition(),
+                lesson.getContentUrl(),
+                lesson.getContentText(),
+                false // New lessons are not completed yet
         );
     }
 }
