@@ -6,8 +6,10 @@ import com.talentFlow.common.exception.ApiException;
 import com.talentFlow.course.web.dto.AssignmentFeedbackResponse;
 import com.talentFlow.course.web.dto.AssignmentResponse;
 import com.talentFlow.course.web.dto.CourseMaterialResponse;
+import com.talentFlow.course.web.dto.CourseModuleResponse;
 import com.talentFlow.course.web.dto.CourseResponse;
 import com.talentFlow.course.web.dto.CreateAssignmentRequest;
+import com.talentFlow.course.web.dto.CreateCourseModuleRequest;
 import com.talentFlow.course.web.dto.CreateCourseRequest;
 import com.talentFlow.course.web.dto.LearnerProgressResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
@@ -83,6 +85,15 @@ public class InstructorController {
             Authentication authentication
     ) {
         return instructorService.uploadMaterialFile(courseId, title, materialType, file, getActor(authentication));
+    }
+
+    @PostMapping("/courses/{courseId}/modules")
+    public CourseModuleResponse createCourseModule(
+            @PathVariable UUID courseId,
+            @Valid @RequestBody CreateCourseModuleRequest request,
+            Authentication authentication
+    ) {
+        return instructorService.createCourseModule(courseId, request, getActor(authentication));
     }
 
     @PostMapping("/courses/{courseId}/assignments")

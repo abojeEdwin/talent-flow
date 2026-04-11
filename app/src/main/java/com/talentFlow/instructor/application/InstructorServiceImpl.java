@@ -12,6 +12,7 @@ import com.talentFlow.course.domain.Course;
 import com.talentFlow.course.domain.CourseEnrollment;
 import com.talentFlow.course.domain.CourseInstructor;
 import com.talentFlow.course.domain.CourseMaterial;
+import com.talentFlow.course.domain.CourseModule;
 import com.talentFlow.course.domain.enums.CourseStatus;
 import com.talentFlow.course.domain.enums.EnrollmentStatus;
 import com.talentFlow.course.domain.enums.MaterialType;
@@ -23,12 +24,15 @@ import com.talentFlow.course.infrastructure.repository.AssignmentSubmissionRepos
 import com.talentFlow.course.infrastructure.repository.CourseEnrollmentRepository;
 import com.talentFlow.course.infrastructure.repository.CourseInstructorRepository;
 import com.talentFlow.course.infrastructure.repository.CourseMaterialRepository;
+import com.talentFlow.course.infrastructure.repository.CourseModuleRepository;
 import com.talentFlow.course.infrastructure.repository.CourseRepository;
 import com.talentFlow.course.web.dto.AssignmentFeedbackResponse;
 import com.talentFlow.course.web.dto.AssignmentResponse;
 import com.talentFlow.course.web.dto.CourseMaterialResponse;
+import com.talentFlow.course.web.dto.CourseModuleResponse;
 import com.talentFlow.course.web.dto.CourseResponse;
 import com.talentFlow.course.web.dto.CreateAssignmentRequest;
+import com.talentFlow.course.web.dto.CreateCourseModuleRequest;
 import com.talentFlow.course.web.dto.CreateCourseRequest;
 import com.talentFlow.course.web.dto.LearnerProgressResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
@@ -41,6 +45,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -53,6 +58,7 @@ public class InstructorServiceImpl implements InstructorService {
     private final CourseRepository courseRepository;
     private final CourseInstructorRepository courseInstructorRepository;
     private final CourseMaterialRepository courseMaterialRepository;
+    private final CourseModuleRepository courseModuleRepository;
     private final AssignmentRepository assignmentRepository;
     private final AssignmentSubmissionRepository assignmentSubmissionRepository;
     private final AssignmentFeedbackRepository assignmentFeedbackRepository;
@@ -188,6 +194,25 @@ public class InstructorServiceImpl implements InstructorService {
                 saved.getContentUrl(),
                 saved.getUploadStatus().name(),
                 actor.getId()
+        );
+    }
+
+    @Override
+    @Transactional
+    public CourseModuleResponse createCourseModule(UUID courseId, CreateCourseModuleRequest request, User actor) {
+        Course course = getCourseAndCheckInstructor(courseId, actor);
+        CourseModule module = new CourseModule();
+        module.setCourse(course);
+        module.setTitle(request.title().trim());
+        module.setPosition(request.position());
+
+        CourseModule saved = courseModuleRepository.save(module);
+
+        return new CourseModuleResponse(
+                saved.getId(),
+                saved.getTitle(),
+                saved.getPosition(),
+                new ArrayList<>()
         );
     }
 

@@ -4,8 +4,10 @@ import com.talentFlow.auth.domain.User;
 import com.talentFlow.course.web.dto.AssignmentFeedbackResponse;
 import com.talentFlow.course.web.dto.AssignmentResponse;
 import com.talentFlow.course.web.dto.CourseMaterialResponse;
+import com.talentFlow.course.web.dto.CourseModuleResponse;
 import com.talentFlow.course.web.dto.CourseResponse;
 import com.talentFlow.course.web.dto.CreateAssignmentRequest;
+import com.talentFlow.course.web.dto.CreateCourseModuleRequest;
 import com.talentFlow.course.web.dto.CreateCourseRequest;
 import com.talentFlow.course.web.dto.LearnerProgressResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
@@ -34,6 +36,8 @@ public interface InstructorService {
                                               MaterialType materialType,
                                               MultipartFile file,
                                               User actor);
+
+    CourseModuleResponse createCourseModule(UUID courseId, CreateCourseModuleRequest request, User actor);
 
     AssignmentResponse createAssignment(UUID courseId, CreateAssignmentRequest request, User actor);
 
