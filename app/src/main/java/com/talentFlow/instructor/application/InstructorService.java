@@ -29,7 +29,6 @@ public interface InstructorService {
 
     List<CourseResponse> listMyCourses(User actor);
 
-    // Course Module CRUD
     CourseModuleResponse createCourseModule(UUID courseId, CreateCourseModuleRequest request, User actor);
 
     List<CourseModuleResponse> listCourseModules(UUID courseId, User actor);
@@ -38,7 +37,6 @@ public interface InstructorService {
 
     void deleteCourseModule(UUID moduleId, User actor);
 
-    // Lesson CRUD
     LessonResponse createLesson(UUID moduleId, CreateLessonRequest request, User actor);
 
     LessonResponse createLessonWithFile(UUID moduleId,

@@ -1,6 +1,8 @@
 package com.talentFlow.learner.application;
 
+import com.talentFlow.admin.infrastructure.repository.TeamMemberRepository;
 import com.talentFlow.auth.domain.User;
+import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.common.exception.ApiException;
 import com.talentFlow.common.storage.service.FileStorageService;
 import com.talentFlow.course.domain.Course;
@@ -48,6 +50,7 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     private final CourseModuleRepository courseModuleRepository;
     private final LessonRepository lessonRepository;
     private final LessonProgressRepository lessonProgressRepository;
+    private final TeamMemberRepository teamMemberRepository;
     private final ProgressTrackingService progressTrackingService;
     private final FileStorageService fileStorageService;
 
@@ -63,6 +66,10 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     @Override
     @Transactional
     public CourseResponse enrollInCourse(UUID courseId, User learner) {
+        if (learner.getRole() == RoleName.INTERN && !teamMemberRepository.existsByUser_Id(learner.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only interns allocated to a team can enroll in a course");
+        }
+
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Course not found"));
         if (course.getStatus() != CourseStatus.PUBLISHED) {
