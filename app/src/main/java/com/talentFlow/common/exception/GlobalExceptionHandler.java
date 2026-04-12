@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -46,6 +47,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleConstraintViolation(ConstraintViolationException exception, HttpServletRequest request) {
         log.warn("Constraint violation at path {}: {}", request.getRequestURI(), exception.getMessage());
         return ResponseEntity.badRequest().body(buildBody(HttpStatus.BAD_REQUEST, exception.getMessage(), request));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(MethodArgumentTypeMismatchException exception,
+                                                                  HttpServletRequest request) {
+        String parameterName = exception.getName();
+        String message = "Invalid value for parameter '" + parameterName + "'";
+
+        if ("courseId".equals(parameterName)) {
+            message = "Invalid courseId format";
+        }
+
+        log.warn("Type mismatch at path {} for parameter {}: {}", request.getRequestURI(), parameterName, exception.getValue());
+        return ResponseEntity.badRequest().body(buildBody(HttpStatus.BAD_REQUEST, message, request));
     }
 
     @ExceptionHandler(Exception.class)
