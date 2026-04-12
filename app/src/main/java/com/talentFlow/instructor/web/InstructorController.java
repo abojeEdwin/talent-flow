@@ -15,6 +15,7 @@ import com.talentFlow.course.web.dto.LearnerProgressResponse;
 import com.talentFlow.course.web.dto.LessonResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
 import com.talentFlow.course.domain.enums.LessonType;
+import com.talentFlow.common.response.ApiMessageResponse;
 import com.talentFlow.instructor.application.InstructorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,9 +24,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -67,6 +70,7 @@ public class InstructorController {
         return instructorService.listMyCourses(getActor(authentication));
     }
 
+    // Module CRUD
     @PostMapping("/courses/{courseId}/modules")
     public CourseModuleResponse createCourseModule(
             @PathVariable UUID courseId,
@@ -76,6 +80,33 @@ public class InstructorController {
         return instructorService.createCourseModule(courseId, request, getActor(authentication));
     }
 
+    @GetMapping("/courses/{courseId}/modules")
+    public List<CourseModuleResponse> listCourseModules(
+            @PathVariable UUID courseId,
+            Authentication authentication
+    ) {
+        return instructorService.listCourseModules(courseId, getActor(authentication));
+    }
+
+    @PutMapping("/modules/{moduleId}")
+    public CourseModuleResponse updateCourseModule(
+            @PathVariable UUID moduleId,
+            @Valid @RequestBody CreateCourseModuleRequest request,
+            Authentication authentication
+    ) {
+        return instructorService.updateCourseModule(moduleId, request, getActor(authentication));
+    }
+
+    @DeleteMapping("/modules/{moduleId}")
+    public ApiMessageResponse deleteCourseModule(
+            @PathVariable UUID moduleId,
+            Authentication authentication
+    ) {
+        instructorService.deleteCourseModule(moduleId, getActor(authentication));
+        return new ApiMessageResponse("Module deleted successfully");
+    }
+
+    // Lesson CRUD
     @PostMapping(value = "/modules/{moduleId}/lessons", consumes = MediaType.APPLICATION_JSON_VALUE)
     public LessonResponse createLesson(
             @PathVariable UUID moduleId,
@@ -95,6 +126,44 @@ public class InstructorController {
             Authentication authentication
     ) {
         return instructorService.createLessonWithFile(moduleId, title, lessonType, position, file, getActor(authentication));
+    }
+
+    @GetMapping("/lessons/{lessonId}")
+    public LessonResponse getLesson(
+            @PathVariable UUID lessonId,
+            Authentication authentication
+    ) {
+        return instructorService.getLesson(lessonId, getActor(authentication));
+    }
+
+    @PutMapping(value = "/lessons/{lessonId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public LessonResponse updateLesson(
+            @PathVariable UUID lessonId,
+            @Valid @RequestBody CreateLessonRequest request,
+            Authentication authentication
+    ) {
+        return instructorService.updateLesson(lessonId, request, getActor(authentication));
+    }
+
+    @PutMapping(value = "/lessons/{lessonId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public LessonResponse updateLessonWithFile(
+            @PathVariable UUID lessonId,
+            @RequestParam("title") String title,
+            @RequestParam("lessonType") LessonType lessonType,
+            @RequestParam("position") Integer position,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            Authentication authentication
+    ) {
+        return instructorService.updateLessonWithFile(lessonId, title, lessonType, position, file, getActor(authentication));
+    }
+
+    @DeleteMapping("/lessons/{lessonId}")
+    public ApiMessageResponse deleteLesson(
+            @PathVariable UUID lessonId,
+            Authentication authentication
+    ) {
+        instructorService.deleteLesson(lessonId, getActor(authentication));
+        return new ApiMessageResponse("Lesson deleted successfully");
     }
 
     @PostMapping("/courses/{courseId}/assignments")

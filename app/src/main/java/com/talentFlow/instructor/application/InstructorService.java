@@ -29,8 +29,16 @@ public interface InstructorService {
 
     List<CourseResponse> listMyCourses(User actor);
 
+    // Course Module CRUD
     CourseModuleResponse createCourseModule(UUID courseId, CreateCourseModuleRequest request, User actor);
 
+    List<CourseModuleResponse> listCourseModules(UUID courseId, User actor);
+
+    CourseModuleResponse updateCourseModule(UUID moduleId, CreateCourseModuleRequest request, User actor);
+
+    void deleteCourseModule(UUID moduleId, User actor);
+
+    // Lesson CRUD
     LessonResponse createLesson(UUID moduleId, CreateLessonRequest request, User actor);
 
     LessonResponse createLessonWithFile(UUID moduleId,
@@ -39,6 +47,19 @@ public interface InstructorService {
                                         Integer position,
                                         MultipartFile file,
                                         User actor);
+
+    LessonResponse getLesson(UUID lessonId, User actor);
+
+    LessonResponse updateLesson(UUID lessonId, CreateLessonRequest request, User actor);
+
+    LessonResponse updateLessonWithFile(UUID lessonId,
+                                        String title,
+                                        LessonType lessonType,
+                                        Integer position,
+                                        MultipartFile file,
+                                        User actor);
+
+    void deleteLesson(UUID lessonId, User actor);
 
     AssignmentResponse createAssignment(UUID courseId, CreateAssignmentRequest request, User actor);
 

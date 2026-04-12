@@ -139,12 +139,43 @@ public class InstructorServiceImpl implements InstructorService {
 
         CourseModule saved = courseModuleRepository.save(module);
 
-        return new CourseModuleResponse(
-                saved.getId(),
-                saved.getTitle(),
-                saved.getPosition(),
-                new ArrayList<>()
-        );
+        return toModuleResponse(saved, new ArrayList<>());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CourseModuleResponse> listCourseModules(UUID courseId, User actor) {
+        Course course = getCourseAndCheckInstructor(courseId, actor);
+        List<CourseModule> modules = courseModuleRepository.findByCourseOrderByPositionAsc(course);
+        List<Lesson> lessons = lessonRepository.findByModuleInOrderByModule_PositionAscPositionAsc(modules);
+        
+        var lessonsByModule = lessons.stream().collect(Collectors.groupingBy(l -> l.getModule().getId()));
+
+        return modules.stream()
+                .map(module -> toModuleResponse(module, lessonsByModule.getOrDefault(module.getId(), new ArrayList<>())))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public CourseModuleResponse updateCourseModule(UUID moduleId, CreateCourseModuleRequest request, User actor) {
+        CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
+        module.setTitle(request.title().trim());
+        module.setPosition(request.position());
+        CourseModule saved = courseModuleRepository.save(module);
+        
+        List<Lesson> lessons = lessonRepository.findByModuleOrderByPositionAsc(saved);
+        return toModuleResponse(saved, lessons);
+    }
+
+    @Override
+    @Transactional
+    public void deleteCourseModule(UUID moduleId, User actor) {
+        CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
+        if (lessonRepository.existsByModule(module)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Cannot delete module that contains lessons. Delete the lessons first.");
+        }
+        courseModuleRepository.delete(module);
     }
 
     @Override
@@ -200,6 +231,62 @@ public class InstructorServiceImpl implements InstructorService {
         );
 
         return toLessonResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public LessonResponse getLesson(UUID lessonId, User actor) {
+        Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
+        return toLessonResponse(lesson);
+    }
+
+    @Override
+    @Transactional
+    public LessonResponse updateLesson(UUID lessonId, CreateLessonRequest request, User actor) {
+        Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
+        lesson.setTitle(request.title().trim());
+        lesson.setLessonType(request.lessonType());
+        lesson.setPosition(request.position());
+        lesson.setContentUrl(request.contentUrl());
+        lesson.setContentText(request.contentText());
+        
+        Lesson saved = lessonRepository.save(lesson);
+        return toLessonResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public LessonResponse updateLessonWithFile(UUID lessonId,
+                                                String title,
+                                                LessonType lessonType,
+                                                Integer position,
+                                                MultipartFile file,
+                                                User actor) {
+        Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
+        lesson.setTitle(title.trim());
+        lesson.setLessonType(lessonType);
+        lesson.setPosition(position);
+
+        if (file != null && !file.isEmpty()) {
+            lesson.setUploadStatus(LessonUploadStatus.PENDING);
+            lesson.setContentUrl(null);
+            mediaUploadQueueService.enqueue(
+                    MediaUploadTargetType.LESSON_CONTENT,
+                    lesson.getId(),
+                    "courses/" + lesson.getModule().getCourse().getId() + "/lessons",
+                    file
+            );
+        }
+
+        Lesson saved = lessonRepository.save(lesson);
+        return toLessonResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteLesson(UUID lessonId, User actor) {
+        Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
+        lessonRepository.delete(lesson);
     }
 
     @Override
@@ -313,6 +400,18 @@ public class InstructorServiceImpl implements InstructorService {
         return module;
     }
 
+    private Lesson getLessonAndCheckInstructor(UUID lessonId, User actor) {
+        ensureInstructor(actor);
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Lesson not found"));
+        Course course = lesson.getModule().getCourse();
+        boolean isCourseInstructor = courseInstructorRepository.findByCourseAndInstructorUser(course, actor).isPresent();
+        if (!isCourseInstructor && !isAdmin(actor)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
+        }
+        return lesson;
+    }
+
     private void ensureInstructor(User actor) {
         boolean instructor = actor.getRole() == RoleName.INSTRUCTOR || actor.getRole() == RoleName.ADMIN;
         if (!instructor) {
@@ -340,6 +439,15 @@ public class InstructorServiceImpl implements InstructorService {
                 course.getArchivedAt(),
                 course.getCreatedByUser().getId(),
                 instructorIds
+        );
+    }
+
+    private CourseModuleResponse toModuleResponse(CourseModule module, List<Lesson> lessons) {
+        return new CourseModuleResponse(
+                module.getId(),
+                module.getTitle(),
+                module.getPosition(),
+                lessons.stream().map(this::toLessonResponse).toList()
         );
     }
 
