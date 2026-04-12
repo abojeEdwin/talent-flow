@@ -37,7 +37,6 @@ public class MediaUploadJob extends BaseEntity {
 
     @Column(length = 120)
     private String contentType;
-
     @JdbcTypeCode(SqlTypes.BINARY)
     @Column(columnDefinition = "bytea")
     private byte[] payload;
