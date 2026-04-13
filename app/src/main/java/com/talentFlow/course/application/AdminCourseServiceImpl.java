@@ -8,6 +8,7 @@ import com.talentFlow.auth.domain.User;
 import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.auth.infrastructure.repository.UserRepository;
 import com.talentFlow.common.exception.ApiException;
+import com.talentFlow.notification.application.NotificationService;
 import com.talentFlow.course.domain.Course;
 import com.talentFlow.course.domain.CourseEnrollment;
 import com.talentFlow.course.domain.CourseInstructor;
@@ -30,6 +31,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.HashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +44,7 @@ public class AdminCourseServiceImpl implements AdminCourseService {
     private final TeamMemberRepository teamMemberRepository;
     private final UserRepository userRepository;
     private final AdminAuditLogRepository adminAuditLogRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -60,6 +64,7 @@ public class AdminCourseServiceImpl implements AdminCourseService {
         course.setPublishedAt(LocalDateTime.now());
         Course saved = courseRepository.save(course);
         audit(actor, "COURSE_PUBLISHED", "COURSE", saved.getId(), "Published course");
+        notifyCourseStatusChange(saved, "COURSE_PUBLISHED", "Course published", "A course is now available for learning.");
         return toCourseResponse(saved);
     }
 
@@ -74,6 +79,7 @@ public class AdminCourseServiceImpl implements AdminCourseService {
         course.setPublishedAt(null);
         Course saved = courseRepository.save(course);
         audit(actor, "COURSE_UNPUBLISHED", "COURSE", saved.getId(), "Unpublished course");
+        notifyCourseStatusChange(saved, "COURSE_UNPUBLISHED", "Course unpublished", "A course has been moved back to draft.");
         return toCourseResponse(saved);
     }
 
@@ -85,6 +91,7 @@ public class AdminCourseServiceImpl implements AdminCourseService {
         course.setArchivedAt(LocalDateTime.now());
         Course saved = courseRepository.save(course);
         audit(actor, "COURSE_ARCHIVED", "COURSE", saved.getId(), "Archived course");
+        notifyCourseStatusChange(saved, "COURSE_ARCHIVED", "Course archived", "A course has been archived.");
         return toCourseResponse(saved);
     }
 
@@ -100,6 +107,10 @@ public class AdminCourseServiceImpl implements AdminCourseService {
             allInstructorIds.addAll(request.coInstructorIds());
         }
 
+        Set<UUID> previousInstructorIds = courseInstructorRepository.findByCourse(course).stream()
+                .map(ci -> ci.getInstructorUser().getId())
+                .collect(Collectors.toSet());
+
         courseInstructorRepository.deleteByCourse(course);
         courseInstructorRepository.flush();
 
@@ -114,6 +125,8 @@ public class AdminCourseServiceImpl implements AdminCourseService {
 
         audit(actor, "COURSE_INSTRUCTORS_ASSIGNED", "COURSE", course.getId(),
                 "Assigned instructors: " + allInstructorIds);
+
+        notifyInstructorAssignments(course, previousInstructorIds, allInstructorIds);
         return toCourseResponse(course);
     }
 
@@ -126,7 +139,11 @@ public class AdminCourseServiceImpl implements AdminCourseService {
                 .collect(Collectors.toSet());
         int enrolled = 0;
         for (User user : users) {
-            enrolled += enrollOne(course, user);
+            boolean changed = enrollOne(course, user);
+            if (changed) {
+                enrolled += 1;
+                notifyEnrollmentGranted(course, user, "You have been enrolled in a course by your cohort.");
+            }
         }
         audit(actor, "COURSE_BULK_ENROLL_COHORT", "COURSE", course.getId(),
                 "Bulk enrolled cohort " + cohortId + ", count=" + enrolled);
@@ -142,7 +159,11 @@ public class AdminCourseServiceImpl implements AdminCourseService {
                 .collect(Collectors.toSet());
         int enrolled = 0;
         for (User user : users) {
-            enrolled += enrollOne(course, user);
+            boolean changed = enrollOne(course, user);
+            if (changed) {
+                enrolled += 1;
+                notifyEnrollmentGranted(course, user, "You have been enrolled in a course by your team.");
+            }
         }
         audit(actor, "COURSE_BULK_ENROLL_TEAM", "COURSE", course.getId(),
                 "Bulk enrolled team " + teamId + ", count=" + enrolled);
@@ -163,12 +184,13 @@ public class AdminCourseServiceImpl implements AdminCourseService {
         enrollment.setRevokedAt(LocalDateTime.now());
         enrollment.setCompletedAt(null);
         courseEnrollmentRepository.save(enrollment);
+        notifyEnrollmentRevoked(course, user);
 
         audit(actor, "COURSE_ENROLLMENT_REVOKED", "COURSE", course.getId(),
                 "Revoked user " + user.getEmail());
     }
 
-    private int enrollOne(Course course, User user) {
+    private boolean enrollOne(Course course, User user) {
         CourseEnrollment enrollment = courseEnrollmentRepository.findByCourseAndUser(course, user).orElse(null);
         if (enrollment == null) {
             enrollment = new CourseEnrollment();
@@ -178,13 +200,13 @@ public class AdminCourseServiceImpl implements AdminCourseService {
             enrollment.setProgressPct(BigDecimal.ZERO);
         }
         if (enrollment.getStatus() == EnrollmentStatus.ENROLLED) {
-            return 0;
+            return false;
         }
         enrollment.setStatus(EnrollmentStatus.ENROLLED);
         enrollment.setCompletedAt(null);
         enrollment.setRevokedAt(null);
         courseEnrollmentRepository.save(enrollment);
-        return 1;
+        return true;
     }
 
     private Course getCourse(UUID id) {
@@ -228,5 +250,90 @@ public class AdminCourseServiceImpl implements AdminCourseService {
         audit.setResourceId(resourceId);
         audit.setDetails(details);
         adminAuditLogRepository.save(audit);
+    }
+
+    private void notifyCourseStatusChange(Course course, String type, String title, String message) {
+        Set<UUID> recipientIds = new HashSet<>();
+        recipientIds.addAll(courseInstructorRepository.findByCourse(course).stream()
+                .map(ci -> ci.getInstructorUser().getId())
+                .collect(Collectors.toSet()));
+        recipientIds.addAll(courseEnrollmentRepository.findByCourseAndStatus(course, EnrollmentStatus.ENROLLED).stream()
+                .map(enrollment -> enrollment.getUser().getId())
+                .collect(Collectors.toSet()));
+        recipientIds.addAll(courseEnrollmentRepository.findByCourseAndStatus(course, EnrollmentStatus.COMPLETED).stream()
+                .map(enrollment -> enrollment.getUser().getId())
+                .collect(Collectors.toSet()));
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("courseId", course.getId());
+        payload.put("courseTitle", course.getTitle());
+        payload.put("status", course.getStatus().name());
+
+        for (UUID userId : recipientIds) {
+            notificationService.notifyUser(userId, type, title, message, payload);
+        }
+    }
+
+    private void notifyInstructorAssignments(Course course, Set<UUID> previousInstructorIds, Set<UUID> currentInstructorIds) {
+        Set<UUID> added = new HashSet<>(currentInstructorIds);
+        added.removeAll(previousInstructorIds);
+
+        Set<UUID> removed = new HashSet<>(previousInstructorIds);
+        removed.removeAll(currentInstructorIds);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("courseId", course.getId());
+        payload.put("courseTitle", course.getTitle());
+        payload.put("instructorIds", currentInstructorIds);
+
+        for (UUID instructorId : added) {
+            notificationService.notifyUser(
+                    instructorId,
+                    "COURSE_INSTRUCTORS_ASSIGNED",
+                    "Course assignment updated",
+                    "You have been assigned to teach a course.",
+                    payload
+            );
+        }
+
+        for (UUID instructorId : removed) {
+            notificationService.notifyUser(
+                    instructorId,
+                    "COURSE_INSTRUCTORS_UNASSIGNED",
+                    "Course assignment updated",
+                    "You have been removed from a course.",
+                    payload
+            );
+        }
+    }
+
+    private void notifyEnrollmentGranted(Course course, User user, String message) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("courseId", course.getId());
+        payload.put("courseTitle", course.getTitle());
+        payload.put("status", EnrollmentStatus.ENROLLED.name());
+
+        notificationService.notifyUser(
+                user.getId(),
+                "ENROLLMENT_GRANTED",
+                "Course enrollment granted",
+                message,
+                payload
+        );
+    }
+
+    private void notifyEnrollmentRevoked(Course course, User user) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("courseId", course.getId());
+        payload.put("courseTitle", course.getTitle());
+        payload.put("status", EnrollmentStatus.REVOKED.name());
+
+        notificationService.notifyUser(
+                user.getId(),
+                "ENROLLMENT_REVOKED",
+                "Course enrollment revoked",
+                "Your enrollment for this course has been revoked.",
+                payload
+        );
     }
 }

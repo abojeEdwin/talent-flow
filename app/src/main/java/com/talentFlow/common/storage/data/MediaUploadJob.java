@@ -29,6 +29,8 @@ public class MediaUploadJob extends BaseEntity {
     @Column(nullable = false)
     private UUID targetId;
 
+    private UUID initiatedByUserId;
+
     @Column(nullable = false, length = 120)
     private String bucketFolder;
 
