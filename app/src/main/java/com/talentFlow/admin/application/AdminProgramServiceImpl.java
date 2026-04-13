@@ -20,6 +20,7 @@ import com.talentFlow.auth.domain.User;
 import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.auth.infrastructure.repository.UserRepository;
 import com.talentFlow.common.exception.ApiException;
+import com.talentFlow.notification.application.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -29,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +43,7 @@ public class AdminProgramServiceImpl implements AdminProgramService {
     private final TeamMemberRepository teamMemberRepository;
     private final UserRepository userRepository;
     private final AdminAuditLogRepository adminAuditLogRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -119,6 +123,7 @@ public class AdminProgramServiceImpl implements AdminProgramService {
         TeamMember saved = teamMemberRepository.save(member);
         writeAudit(actor, "TEAM_MEMBER_ALLOCATED", "TEAM", team.getId(),
                 "Allocated user " + user.getEmail() + " as " + saved.getTeamRole());
+        notifyTeamAllocated(team, user, saved.getTeamRole(), false);
 
         return new TeamMemberResponse(
                 user.getId(),
@@ -160,6 +165,7 @@ public class AdminProgramServiceImpl implements AdminProgramService {
             member.setUser(intern);
             member.setTeamRole("INTERN");
             teamMemberRepository.save(member);
+            notifyTeamAllocated(team, intern, "INTERN", true);
 
             allocatedMembers.add(new TeamMemberResponse(
                     intern.getId(),
@@ -243,5 +249,22 @@ public class AdminProgramServiceImpl implements AdminProgramService {
         auditLog.setResourceId(resourceId);
         auditLog.setDetails(details);
         adminAuditLogRepository.save(auditLog);
+    }
+
+    private void notifyTeamAllocated(ProjectTeam team, User user, String teamRole, boolean autoAllocated) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("teamId", team.getId());
+        payload.put("teamName", team.getName());
+        payload.put("cohortId", team.getCohort().getId());
+        payload.put("teamRole", teamRole);
+        payload.put("autoAllocated", autoAllocated);
+
+        notificationService.notifyUser(
+                user.getId(),
+                "TEAM_ALLOCATED",
+                "Team allocation update",
+                "You have been allocated to team " + team.getName() + ".",
+                payload
+        );
     }
 }

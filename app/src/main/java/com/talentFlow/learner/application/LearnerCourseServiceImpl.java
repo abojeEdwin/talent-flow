@@ -6,6 +6,7 @@ import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.common.exception.ApiException;
 import com.talentFlow.common.storage.config.S3Properties;
 import com.talentFlow.common.storage.service.FileStorageService;
+import com.talentFlow.notification.application.NotificationService;
 import com.talentFlow.course.domain.Course;
 import com.talentFlow.course.domain.CourseEnrollment;
 import com.talentFlow.course.domain.CourseModule;
@@ -57,6 +58,7 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     private final ProgressTrackingService progressTrackingService;
     private final FileStorageService fileStorageService;
     private final S3Properties s3Properties;
+    private final NotificationService notificationService;
 
 
     @Override
@@ -92,6 +94,7 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
         enrollment.setCompletedAt(null);
         enrollment.setRevokedAt(null);
         courseEnrollmentRepository.save(enrollment);
+        notifySelfEnrollment(course, learner);
         return toCourseResponse(course);
     }
 
@@ -289,5 +292,20 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
         } catch (Exception exception) {
             return null;
         }
+    }
+
+    private void notifySelfEnrollment(Course course, User learner) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("courseId", course.getId());
+        payload.put("courseTitle", course.getTitle());
+        payload.put("status", EnrollmentStatus.ENROLLED.name());
+
+        notificationService.notifyUser(
+                learner.getId(),
+                "ENROLLMENT_GRANTED",
+                "Enrollment successful",
+                "You are now enrolled in " + course.getTitle() + ".",
+                payload
+        );
     }
 }

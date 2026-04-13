@@ -5,6 +5,7 @@ import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.common.storage.worker.MediaUploadQueueService;
 import com.talentFlow.common.exception.ApiException;
 import com.talentFlow.common.storage.enums.MediaUploadTargetType;
+import com.talentFlow.notification.application.NotificationService;
 import com.talentFlow.course.domain.Assignment;
 import com.talentFlow.course.domain.AssignmentFeedback;
 import com.talentFlow.course.domain.AssignmentSubmission;
@@ -46,7 +47,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -64,6 +67,7 @@ public class InstructorServiceImpl implements InstructorService {
     private final AssignmentFeedbackRepository assignmentFeedbackRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final MediaUploadQueueService mediaUploadQueueService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -305,6 +309,7 @@ public class InstructorServiceImpl implements InstructorService {
         assignment.setMaxScore(request.maxScore());
         assignment.setCreatedByUser(actor);
         Assignment saved = assignmentRepository.save(assignment);
+        notifyAssignmentCreated(course, saved);
         return new AssignmentResponse(
                 saved.getId(),
                 course.getId(),
@@ -365,6 +370,7 @@ public class InstructorServiceImpl implements InstructorService {
             submission.setScore(request.score());
             submission.setStatus(SubmissionStatus.GRADED);
             assignmentSubmissionRepository.save(submission);
+            notifyAssignmentGraded(submission);
         }
 
         AssignmentFeedback feedback = new AssignmentFeedback();
@@ -372,12 +378,74 @@ public class InstructorServiceImpl implements InstructorService {
         feedback.setInstructorUser(actor);
         feedback.setComment(request.comment().trim());
         AssignmentFeedback saved = assignmentFeedbackRepository.save(feedback);
+        notifyFeedbackAdded(submission, saved.getComment());
 
         return new AssignmentFeedbackResponse(
                 saved.getId(),
                 submission.getId(),
                 actor.getId(),
                 saved.getComment()
+        );
+    }
+
+    private void notifyAssignmentCreated(Course course, Assignment assignment) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("courseId", course.getId());
+        payload.put("courseTitle", course.getTitle());
+        payload.put("assignmentId", assignment.getId());
+        payload.put("assignmentTitle", assignment.getTitle());
+        payload.put("dueAt", assignment.getDueAt());
+
+        Set<UUID> learnerIds = courseEnrollmentRepository.findByCourseAndStatus(course, EnrollmentStatus.ENROLLED).stream()
+                .map(enrollment -> enrollment.getUser().getId())
+                .collect(Collectors.toSet());
+        learnerIds.addAll(courseEnrollmentRepository.findByCourseAndStatus(course, EnrollmentStatus.COMPLETED).stream()
+                .map(enrollment -> enrollment.getUser().getId())
+                .collect(Collectors.toSet()));
+
+        for (UUID learnerId : learnerIds) {
+            notificationService.notifyUser(
+                    learnerId,
+                    "ASSIGNMENT_CREATED",
+                    "New assignment available",
+                    "A new assignment was created for " + course.getTitle() + ".",
+                    payload
+            );
+        }
+    }
+
+    private void notifyAssignmentGraded(AssignmentSubmission submission) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("submissionId", submission.getId());
+        payload.put("assignmentId", submission.getAssignment().getId());
+        payload.put("assignmentTitle", submission.getAssignment().getTitle());
+        payload.put("courseId", submission.getAssignment().getCourse().getId());
+        payload.put("score", submission.getScore());
+        payload.put("status", submission.getStatus().name());
+
+        notificationService.notifyUser(
+                submission.getLearnerUser().getId(),
+                "ASSIGNMENT_GRADED",
+                "Assignment graded",
+                "Your assignment has been graded.",
+                payload
+        );
+    }
+
+    private void notifyFeedbackAdded(AssignmentSubmission submission, String comment) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("submissionId", submission.getId());
+        payload.put("assignmentId", submission.getAssignment().getId());
+        payload.put("assignmentTitle", submission.getAssignment().getTitle());
+        payload.put("courseId", submission.getAssignment().getCourse().getId());
+        payload.put("comment", comment);
+
+        notificationService.notifyUser(
+                submission.getLearnerUser().getId(),
+                "FEEDBACK_ADDED",
+                "New instructor feedback",
+                "Your submission received instructor feedback.",
+                payload
         );
     }
 

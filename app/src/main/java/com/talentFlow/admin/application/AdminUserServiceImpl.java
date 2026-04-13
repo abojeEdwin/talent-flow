@@ -13,6 +13,7 @@ import com.talentFlow.auth.domain.enums.UserStatus;
 import com.talentFlow.auth.infrastructure.mail.AuthMailService;
 import com.talentFlow.auth.infrastructure.repository.UserRepository;
 import com.talentFlow.common.exception.ApiException;
+import com.talentFlow.notification.application.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -36,6 +39,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final AuthMailService authMailService;
     private final AuthService authService;
     private final PasswordEncoder passwordEncoder;
+    private final NotificationService notificationService;
 
 
 
@@ -132,6 +136,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         User saved = userRepository.save(user);
         writeAudit(actor, "USER_STATUS_UPDATED", "USER", saved.getId(),
                 "Changed status from " + previousStatus + " to " + newStatus);
+        notifyUserStatusChanged(saved, previousStatus, newStatus);
         return toDetailResponse(saved);
     }
 
@@ -182,6 +187,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         User saved = userRepository.save(user);
         writeAudit(actor, "USER_DEACTIVATED", "USER", saved.getId(),
                 "Soft-offboarded user. Previous status was " + previousStatus);
+        notifyUserDeactivated(saved, previousStatus);
         return toDetailResponse(saved);
     }
 
@@ -194,6 +200,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         authMailService.sendPasswordResetEmail(user.getEmail(), user.getFirstName(), resetLink);
         writeAudit(actor, "PASSWORD_RESET_TRIGGERED", "USER", user.getId(),
                 "Admin initiated password reset");
+        notifyPasswordResetTriggered(user);
     }
 
     @Override
@@ -206,6 +213,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         writeAudit(actor, "USER_ROLES_UPDATED", "USER", saved.getId(),
                 "Changed role from " + previousRole + " to " + saved.getRole());
+        notifyRoleChanged(saved, previousRole, saved.getRole());
         return toDetailResponse(saved);
     }
 
@@ -260,5 +268,64 @@ public class AdminUserServiceImpl implements AdminUserService {
             builder.append(chars.charAt(random.nextInt(chars.length())));
         }
         return builder.toString();
+    }
+
+    private void notifyUserStatusChanged(User user, UserStatus previousStatus, UserStatus newStatus) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("userId", user.getId());
+        payload.put("previousStatus", previousStatus.name());
+        payload.put("newStatus", newStatus.name());
+
+        notificationService.notifyUser(
+                user.getId(),
+                "ACCOUNT_STATUS_CHANGED",
+                "Account status updated",
+                "Your account status changed from " + previousStatus + " to " + newStatus + ".",
+                payload
+        );
+    }
+
+    private void notifyRoleChanged(User user, RoleName previousRole, RoleName newRole) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("userId", user.getId());
+        payload.put("previousRole", previousRole.name());
+        payload.put("newRole", newRole.name());
+
+        notificationService.notifyUser(
+                user.getId(),
+                "ROLE_CHANGED",
+                "Account role updated",
+                "Your account role changed from " + previousRole + " to " + newRole + ".",
+                payload
+        );
+    }
+
+    private void notifyUserDeactivated(User user, UserStatus previousStatus) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("userId", user.getId());
+        payload.put("previousStatus", previousStatus.name());
+        payload.put("newStatus", UserStatus.DISABLED.name());
+
+        notificationService.notifyUser(
+                user.getId(),
+                "ACCOUNT_DEACTIVATED",
+                "Account deactivated",
+                "Your account has been deactivated.",
+                payload
+        );
+    }
+
+    private void notifyPasswordResetTriggered(User user) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("userId", user.getId());
+        payload.put("email", user.getEmail());
+
+        notificationService.notifyUser(
+                user.getId(),
+                "PASSWORD_RESET_TRIGGERED",
+                "Password reset initiated",
+                "A password reset was initiated for your account. Check your email.",
+                payload
+        );
     }
 }

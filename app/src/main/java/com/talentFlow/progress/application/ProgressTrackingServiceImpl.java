@@ -2,6 +2,7 @@ package com.talentFlow.progress.application;
 
 import com.talentFlow.auth.domain.User;
 import com.talentFlow.common.exception.ApiException;
+import com.talentFlow.notification.application.NotificationService;
 import com.talentFlow.course.domain.Course;
 import com.talentFlow.course.domain.CourseEnrollment;
 import com.talentFlow.course.domain.enums.EnrollmentStatus;
@@ -17,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +30,7 @@ public class ProgressTrackingServiceImpl implements ProgressTrackingService {
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final CertificateService certificateService;
     private final ProgressUpdatePublisher progressUpdatePublisher;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -54,6 +58,7 @@ public class ProgressTrackingServiceImpl implements ProgressTrackingService {
             enrollment.setCompletedAt(LocalDateTime.now());
             certificateService.queueCourseCertificate(learner, course);
             certificateQueued = true;
+            notifyCourseCompleted(learner, course, progressPct);
         }
         if (progressPct.compareTo(BigDecimal.valueOf(100)) < 0 && enrollment.getStatus() == EnrollmentStatus.COMPLETED) {
             enrollment.setStatus(EnrollmentStatus.ENROLLED);
@@ -67,6 +72,23 @@ public class ProgressTrackingServiceImpl implements ProgressTrackingService {
                 enrollment.getProgressPct(),
                 enrollment.getStatus(),
                 certificateQueued
+        );
+    }
+
+    private void notifyCourseCompleted(User learner, Course course, BigDecimal progressPct) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("courseId", course.getId());
+        payload.put("courseTitle", course.getTitle());
+        payload.put("progressPct", progressPct);
+        payload.put("enrollmentStatus", EnrollmentStatus.COMPLETED.name());
+        payload.put("certificateQueued", true);
+
+        notificationService.notifyUser(
+                learner.getId(),
+                "COURSE_COMPLETED",
+                "Course completed",
+                "Congratulations. You have completed " + course.getTitle() + ". Certificate generation has been queued.",
+                payload
         );
     }
 }
