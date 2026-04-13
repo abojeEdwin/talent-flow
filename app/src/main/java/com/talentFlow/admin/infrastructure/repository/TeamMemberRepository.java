@@ -17,8 +17,8 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, TeamMemb
 
     long countByTeam_Id(UUID teamId);
 
-    @Query("SELECT tm FROM TeamMember tm WHERE LOWER(tm.teamRole) = 'intern' ORDER BY tm.createdAt DESC")
-    List<TeamMember> findAllInterns();
-
     boolean existsByUser_Id(UUID userId);
+
+    @Query("SELECT tm FROM TeamMember tm JOIN FETCH tm.user ORDER BY tm.createdAt ASC")
+    List<TeamMember> findAllWithUser();
 }
