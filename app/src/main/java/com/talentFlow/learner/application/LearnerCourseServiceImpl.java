@@ -98,7 +98,9 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     @Override
     @Transactional(readOnly = true)
     public List<CourseResponse> myEnrollments(User learner) {
-        return courseEnrollmentRepository.findByUserAndStatus(learner, EnrollmentStatus.ENROLLED).stream()
+        return courseEnrollmentRepository.findByUser(learner)
+                .stream()
+                .filter(e -> e.getStatus() == EnrollmentStatus.ENROLLED || e.getStatus() == EnrollmentStatus.COMPLETED)
                 .map(CourseEnrollment::getCourse)
                 .distinct()
                 .map(this::toCourseResponse)

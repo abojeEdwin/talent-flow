@@ -95,6 +95,7 @@ public class InstructorServiceImpl implements InstructorService {
             mediaUploadQueueService.enqueue(
                     MediaUploadTargetType.COURSE_COVER,
                     saved.getId(),
+                    actor.getId(),
                     "courses/cover-images",
                     coverImage
             );
@@ -103,6 +104,7 @@ public class InstructorServiceImpl implements InstructorService {
             mediaUploadQueueService.enqueue(
                     MediaUploadTargetType.COURSE_INTRO_VIDEO,
                     saved.getId(),
+                    actor.getId(),
                     "courses/intro-videos",
                     introVideo
             );
@@ -226,6 +228,7 @@ public class InstructorServiceImpl implements InstructorService {
         mediaUploadQueueService.enqueue(
                 MediaUploadTargetType.LESSON_CONTENT,
                 saved.getId(),
+                actor.getId(),
                 "courses/" + module.getCourse().getId() + "/lessons",
                 file
         );
@@ -273,6 +276,7 @@ public class InstructorServiceImpl implements InstructorService {
             mediaUploadQueueService.enqueue(
                     MediaUploadTargetType.LESSON_CONTENT,
                     lesson.getId(),
+                    actor.getId(),
                     "courses/" + lesson.getModule().getCourse().getId() + "/lessons",
                     file
             );

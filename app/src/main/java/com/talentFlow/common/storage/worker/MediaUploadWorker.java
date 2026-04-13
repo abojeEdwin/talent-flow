@@ -5,6 +5,7 @@ import com.talentFlow.common.storage.data.repository.MediaUploadJobRepository;
 import com.talentFlow.common.storage.data.MediaUploadJob;
 import com.talentFlow.common.storage.enums.MediaUploadTargetType;
 import com.talentFlow.common.storage.enums.UploadStatus;
+import com.talentFlow.notification.application.NotificationService;
 import com.talentFlow.course.domain.Course;
 import com.talentFlow.course.domain.CourseMaterial;
 import com.talentFlow.course.domain.Lesson;
@@ -20,7 +21,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -29,6 +32,7 @@ public class MediaUploadWorker {
 
     private final MediaUploadJobRepository mediaUploadJobRepository;
     private final FileStorageService fileStorageService;
+    private final NotificationService notificationService;
     private final CourseRepository courseRepository;
     private final CourseMaterialRepository courseMaterialRepository;
     private final LessonRepository lessonRepository;
@@ -68,6 +72,7 @@ public class MediaUploadWorker {
             job.setPayload(null);
             job.setLastError(null);
             mediaUploadJobRepository.save(job);
+            publishUploadNotification(job, "Upload completed", "Your upload has been processed successfully");
         } catch (Exception exception) {
             log.warn("Media upload job {} failed on attempt {}: {}", job.getId(), job.getAttempts(), exception.getMessage());
             handleFailure(job, exception.getMessage());
@@ -122,5 +127,32 @@ public class MediaUploadWorker {
             job.setNextAttemptAt(LocalDateTime.now().plusSeconds(backoffSeconds));
         }
         mediaUploadJobRepository.save(job);
+
+        if (job.getStatus() == UploadStatus.FAILED) {
+            publishUploadNotification(job, "Upload failed", "Upload processing failed after retries");
+        }
+    }
+
+    private void publishUploadNotification(MediaUploadJob job, String title, String message) {
+        if (job.getInitiatedByUserId() == null) {
+            return;
+        }
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("jobId", job.getId());
+        payload.put("targetType", job.getTargetType().name());
+        payload.put("targetId", job.getTargetId());
+        payload.put("status", job.getStatus().name());
+        payload.put("filename", job.getOriginalFilename());
+        payload.put("uploadedUrl", job.getUploadedUrl());
+        payload.put("error", job.getLastError());
+
+        notificationService.notifyUser(
+                job.getInitiatedByUserId(),
+                "UPLOAD_STATUS",
+                title,
+                message,
+                payload
+        );
     }
 }
