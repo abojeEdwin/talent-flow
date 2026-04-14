@@ -38,6 +38,9 @@ import java.util.HashMap;
 @RequiredArgsConstructor
 public class AdminCourseServiceImpl implements AdminCourseService {
 
+    //TODO:Implement cache-aside pattern
+    //TODO:Cache responses from [ ListCourses, ]
+
     private final CourseRepository courseRepository;
     private final CourseInstructorRepository courseInstructorRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
