@@ -69,6 +69,15 @@ public class InstructorServiceImpl implements InstructorService {
     private final MediaUploadQueueService mediaUploadQueueService;
     private final NotificationService notificationService;
 
+    //TODO:Validate course does not exist before creating a new one.
+    //TODO:Implement cache-aside pattern.
+    //TODO:Cache responses from [List my courses, List course module, Monitor learner's progress]
+    //TODO:Validate module's existence before creating one.
+    //TODO:Validate lesson's existence before creating one.
+    //TODO:Validate assignment existence before create one.
+    //TODO:Implement features [Grade assignment, Get assignment, Delete assignment]
+
+
     @Override
     @Transactional
     public CourseResponse createCourse(CreateCourseRequest request, User actor) {

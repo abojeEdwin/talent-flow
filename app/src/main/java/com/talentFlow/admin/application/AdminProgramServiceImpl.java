@@ -48,6 +48,13 @@ public class AdminProgramServiceImpl implements AdminProgramService {
     private final AdminAuditLogRepository adminAuditLogRepository;
     private final NotificationService notificationService;
 
+
+
+    //TODO:Handle scenerios where cohort start and end dates are invalid(e.g in the past).
+    //TODO:Handle scenerios where cohort start and end dates are the same.
+    //TODO:Implement cache-aside pattern
+    //TODO:Check if user exist in a team before allocating user. Return proper error message if found.
+
     @Override
     @Transactional
     @CacheEvict(value = "cohorts", allEntries = true)

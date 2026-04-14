@@ -60,6 +60,9 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     private final S3Properties s3Properties;
     private final NotificationService notificationService;
 
+    //TODO:Cache responses from [Browse published courses, My enrollments, Course details ](Bare in mind what happens when there's an update)
+    //TODO:Implement cache-aside pattern.
+    //TODO: Refactor methods to separate service.
 
     @Override
     @Transactional(readOnly = true)
