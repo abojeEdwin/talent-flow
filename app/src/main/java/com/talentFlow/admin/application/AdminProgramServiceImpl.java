@@ -50,11 +50,6 @@ public class AdminProgramServiceImpl implements AdminProgramService {
 
 
 
-    //TODO:Handle scenerios where cohort start and end dates are invalid(e.g in the past).
-    //TODO:Handle scenerios where cohort start and end dates are the same.
-    //TODO:Implement cache-aside pattern
-    //TODO:Check if user exist in a team before allocating user. Return proper error message if found.
-
     @Override
     @Transactional
     @CacheEvict(value = "cohorts", allEntries = true)
@@ -62,8 +57,17 @@ public class AdminProgramServiceImpl implements AdminProgramService {
         if (cohortRepository.existsByNameIgnoreCase(request.name().trim())) {
             throw new ApiException(HttpStatus.CONFLICT, "Cohort name already exists");
         }
+        if (request.startDate().isBefore(java.time.LocalDate.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Cohort startDate cannot be in the past");
+        }
+        if (request.endDate().isBefore(java.time.LocalDate.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Cohort endDate cannot be in the past");
+        }
         if (request.endDate().isBefore(request.startDate())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Cohort endDate cannot be before startDate");
+        }
+        if (request.endDate().isEqual(request.startDate())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Cohort endDate cannot be the same as startDate");
         }
 
         Cohort cohort = new Cohort();
