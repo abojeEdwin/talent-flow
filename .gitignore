@@ -13,6 +13,7 @@ app/src/main/resources/application.yml
 *.classpath
 *.factorypath
 *.project
+app/.settings/
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
