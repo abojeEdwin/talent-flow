@@ -20,6 +20,8 @@ import com.talentFlow.course.infrastructure.repository.CourseRepository;
 import com.talentFlow.course.web.dto.AssignInstructorsRequest;
 import com.talentFlow.course.web.dto.CourseResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +41,6 @@ import java.util.HashMap;
 public class AdminCourseServiceImpl implements AdminCourseService {
 
     //TODO:Implement cache-aside pattern
-    //TODO:Cache responses from [ ListCourses, ]
 
     private final CourseRepository courseRepository;
     private final CourseInstructorRepository courseInstructorRepository;
@@ -51,6 +52,7 @@ public class AdminCourseServiceImpl implements AdminCourseService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "courses", key = "#status?.name() ?: 'all'")
     public List<CourseResponse> listCourses(CourseStatus status) {
         List<Course> courses = status == null ? courseRepository.findAll() : courseRepository.findByStatus(status);
         return courses.stream().map(this::toCourseResponse).toList();
@@ -58,6 +60,7 @@ public class AdminCourseServiceImpl implements AdminCourseService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "courses", allEntries = true)
     public CourseResponse publishCourse(UUID courseId, User actor) {
         Course course = getCourse(courseId);
         if (course.getStatus() == CourseStatus.ARCHIVED) {
@@ -73,6 +76,7 @@ public class AdminCourseServiceImpl implements AdminCourseService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "courses", allEntries = true)
     public CourseResponse unpublishCourse(UUID courseId, User actor) {
         Course course = getCourse(courseId);
         if (course.getStatus() == CourseStatus.ARCHIVED) {
@@ -88,6 +92,7 @@ public class AdminCourseServiceImpl implements AdminCourseService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "courses", allEntries = true)
     public CourseResponse archiveCourse(UUID courseId, User actor) {
         Course course = getCourse(courseId);
         course.setStatus(CourseStatus.ARCHIVED);
@@ -100,6 +105,7 @@ public class AdminCourseServiceImpl implements AdminCourseService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "courses", allEntries = true)
     public CourseResponse assignInstructors(UUID courseId, AssignInstructorsRequest request, User actor) {
         Course course = getCourse(courseId);
         User primaryInstructor = getMentorUser(request.primaryInstructorId());

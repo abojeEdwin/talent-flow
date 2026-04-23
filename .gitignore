@@ -5,12 +5,14 @@ target/
 app/target/
 render.yaml
 # Log file
-*.log
+
 
 # BlueJ files
 *.ctxt
 app/src/main/resources/application.yml
-
+*.classpath
+*.factorypath
+*.project
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 

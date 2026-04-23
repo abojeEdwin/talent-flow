@@ -39,6 +39,8 @@ import com.talentFlow.course.web.dto.LearnerProgressResponse;
 import com.talentFlow.course.web.dto.LessonResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,23 +71,20 @@ public class InstructorServiceImpl implements InstructorService {
     private final MediaUploadQueueService mediaUploadQueueService;
     private final NotificationService notificationService;
 
-    //TODO:Validate course does not exist before creating a new one.
-    //TODO:Implement cache-aside pattern.
-    //TODO:Cache responses from [List my courses, List course module, Monitor learner's progress]
-    //TODO:Validate module's existence before creating one.
-    //TODO:Validate lesson's existence before creating one.
     //TODO:Validate assignment existence before create one.
     //TODO:Implement features [Grade assignment, Get assignment, Delete assignment]
 
 
     @Override
     @Transactional
+    @CacheEvict(value = "my-courses", key = "#actor.id")
     public CourseResponse createCourse(CreateCourseRequest request, User actor) {
         return createCourseWithMedia(request.title(), request.description(), null, null, actor);
     }
 
     @Override
     @Transactional
+    @CacheEvict(value = "my-courses", key = "#actor.id")
     public CourseResponse createCourseWithMedia(String title,
                                                 String description,
                                                 MultipartFile coverImage,
@@ -96,8 +95,13 @@ public class InstructorServiceImpl implements InstructorService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Course title is required");
         }
 
+        String trimmedTitle = title.trim();
+        if (courseRepository.findByTitleIgnoreCase(trimmedTitle).isPresent()) {
+            throw new ApiException(HttpStatus.CONFLICT, "A course with this title already exists");
+        }
+
         Course course = new Course();
-        course.setTitle(title.trim());
+        course.setTitle(trimmedTitle);
         course.setDescription(description);
         course.setStatus(CourseStatus.DRAFT);
         course.setCreatedByUser(actor);
@@ -134,6 +138,8 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "my-courses", key = "#actor.id")
+    //TODO: Add pagination and filtering by status (draft/published/archived)
     public List<CourseResponse> listMyCourses(User actor) {
         ensureInstructor(actor);
         return courseInstructorRepository.findByInstructorUser(actor).stream()
@@ -145,11 +151,18 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "course-modules", key = "#courseId")
     public CourseModuleResponse createCourseModule(UUID courseId, CreateCourseModuleRequest request, User actor) {
         Course course = getCourseAndCheckInstructor(courseId, actor);
+
+        String trimmedTitle = request.title().trim();
+        if (courseModuleRepository.findByCourseAndTitleIgnoreCase(course, trimmedTitle).isPresent()) {
+            throw new ApiException(HttpStatus.CONFLICT, "A module with this title already exists in this course");
+        }
+
         CourseModule module = new CourseModule();
         module.setCourse(course);
-        module.setTitle(request.title().trim());
+        module.setTitle(trimmedTitle);
         module.setPosition(request.position());
 
         CourseModule saved = courseModuleRepository.save(module);
@@ -159,6 +172,8 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "course-modules", key = "#courseId")
+    //TODO:Add pagination
     public List<CourseModuleResponse> listCourseModules(UUID courseId, User actor) {
         Course course = getCourseAndCheckInstructor(courseId, actor);
         List<CourseModule> modules = courseModuleRepository.findByCourseOrderByPositionAsc(course);
@@ -173,6 +188,7 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "course-modules", key = "#module.course.id")
     public CourseModuleResponse updateCourseModule(UUID moduleId, CreateCourseModuleRequest request, User actor) {
         CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
         module.setTitle(request.title().trim());
@@ -185,6 +201,7 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "course-modules", key = "#module.course.id")
     public void deleteCourseModule(UUID moduleId, User actor) {
         CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
         if (lessonRepository.existsByModule(module)) {
@@ -195,11 +212,18 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "course-modules", key = "#module.course.id")
     public LessonResponse createLesson(UUID moduleId, CreateLessonRequest request, User actor) {
         CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
+
+        String trimmedTitle = request.title().trim();
+        if (lessonRepository.findByModuleAndTitleIgnoreCase(module, trimmedTitle).isPresent()) {
+            throw new ApiException(HttpStatus.CONFLICT, "A lesson with this title already exists in this module");
+        }
+
         Lesson lesson = new Lesson();
         lesson.setModule(module);
-        lesson.setTitle(request.title().trim());
+        lesson.setTitle(trimmedTitle);
         lesson.setLessonType(request.lessonType());
         lesson.setPosition(request.position());
         lesson.setContentUrl(request.contentUrl());
@@ -212,6 +236,7 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "course-modules", key = "#module.course.id")
     public LessonResponse createLessonWithFile(UUID moduleId,
                                                 String title,
                                                 LessonType lessonType,
@@ -230,9 +255,14 @@ public class InstructorServiceImpl implements InstructorService {
 
         CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
 
+        String trimmedTitle = title.trim();
+        if (lessonRepository.findByModuleAndTitleIgnoreCase(module, trimmedTitle).isPresent()) {
+            throw new ApiException(HttpStatus.CONFLICT, "A lesson with this title already exists in this module");
+        }
+
         Lesson lesson = new Lesson();
         lesson.setModule(module);
-        lesson.setTitle(title.trim());
+        lesson.setTitle(trimmedTitle);
         lesson.setLessonType(lessonType);
         lesson.setPosition(position);
         lesson.setUploadStatus(LessonUploadStatus.PENDING);
@@ -258,6 +288,7 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "course-modules", key = "#lesson.module.course.id")
     public LessonResponse updateLesson(UUID lessonId, CreateLessonRequest request, User actor) {
         Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
         lesson.setTitle(request.title().trim());
@@ -272,6 +303,7 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "course-modules", key = "#lesson.module.course.id")
     public LessonResponse updateLessonWithFile(UUID lessonId,
                                                 String title,
                                                 LessonType lessonType,
@@ -301,6 +333,7 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "course-modules", key = "#lesson.module.course.id")
     public void deleteLesson(UUID lessonId, User actor) {
         Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
         lessonRepository.delete(lesson);
@@ -308,6 +341,7 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "learner-progress", key = "#courseId")
     public AssignmentResponse createAssignment(UUID courseId, CreateAssignmentRequest request, User actor) {
         Course course = getCourseAndCheckInstructor(courseId, actor);
         Assignment assignment = new Assignment();
@@ -332,6 +366,7 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "learner-progress", key = "#courseId")
     public List<LearnerProgressResponse> monitorLearnerProgress(UUID courseId, User actor) {
         Course course = getCourseAndCheckInstructor(courseId, actor);
         List<Assignment> assignments = assignmentRepository.findByCourse(course);
@@ -364,6 +399,7 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "learner-progress", key = "#submission.assignment.course.id")
     public AssignmentFeedbackResponse provideFeedback(UUID submissionId, ProvideFeedbackRequest request, User actor) {
         ensureInstructor(actor);
         AssignmentSubmission submission = assignmentSubmissionRepository.findById(submissionId)

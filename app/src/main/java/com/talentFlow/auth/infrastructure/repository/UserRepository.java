@@ -101,18 +101,30 @@ public interface UserRepository extends JpaRepository<User, UUID> {
                                                         @Param("query") String query,
                                                         Pageable pageable);
 
-    @Query("""
+@Query("""
             SELECT u FROM User u
             WHERE u.role = :role
-              AND u.status = :status
-              AND (
+            AND u.status = :status
+            AND (
                     lower(u.email) LIKE lower(concat('%', :query, '%'))
                  OR lower(u.firstName) LIKE lower(concat('%', :query, '%'))
                  OR lower(u.lastName) LIKE lower(concat('%', :query, '%'))
-              )
+            )
             """)
     Page<User> searchByRoleAndStatusAndQuery(@Param("role") RoleName role,
                                              @Param("status") UserStatus status,
                                              @Param("query") String query,
                                              Pageable pageable);
+
+    @Query("""
+            SELECT u FROM User u
+            WHERE u.status = 'ACTIVE'
+            AND (
+                    lower(u.email) LIKE lower(concat('%', :query, '%'))
+                 OR lower(u.firstName) LIKE lower(concat('%', :query, '%'))
+                 OR lower(u.lastName) LIKE lower(concat('%', :query, '%'))
+            )
+            ORDER BY u.firstName, u.lastName
+            """)
+    Page<User> searchActiveUsersByQuery(@Param("query") String query, Pageable pageable);
 }
