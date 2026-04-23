@@ -139,12 +139,14 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<ConversationResponse> getUserConversations(User user, Pageable pageable) {
         return conversationRepository.findConversationsByUserId(user.getId(), pageable)
                 .map(conversation -> toConversationResponse(conversation, user.getId()));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ConversationResponse getConversation(UUID conversationId, User user) {
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Conversation not found"));
@@ -155,6 +157,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<MessageResponse> getMessages(UUID conversationId, User user, Pageable pageable) {
         ensureParticipant(conversationId, user.getId());
 
@@ -226,6 +229,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ReadReceiptResponse getReadReceipts(UUID conversationId, UUID messageId) {
         ensureParticipant(conversationId, null);
 
