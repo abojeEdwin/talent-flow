@@ -5,8 +5,11 @@ import com.talentFlow.course.domain.CourseModule;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface CourseModuleRepository extends JpaRepository<CourseModule, UUID> {
     List<CourseModule> findByCourseOrderByPositionAsc(Course course);
+
+    Optional<CourseModule> findByCourseAndTitleIgnoreCase(Course course, String title);
 }

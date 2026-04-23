@@ -6,6 +6,7 @@ import com.talentFlow.course.domain.Lesson;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface LessonRepository extends JpaRepository<Lesson, UUID> {
@@ -16,4 +17,6 @@ public interface LessonRepository extends JpaRepository<Lesson, UUID> {
     long countByModule_Course(Course course);
 
     boolean existsByModule(CourseModule module);
+
+    Optional<Lesson> findByModuleAndTitleIgnoreCase(CourseModule module, String title);
 }

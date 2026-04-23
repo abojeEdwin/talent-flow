@@ -70,7 +70,6 @@ public class InstructorController {
         return instructorService.listMyCourses(getActor(authentication));
     }
 
-    // Module CRUD
     @PostMapping("/courses/{courseId}/modules")
     public CourseModuleResponse createCourseModule(
             @PathVariable UUID courseId,
@@ -106,7 +105,6 @@ public class InstructorController {
         return new ApiMessageResponse("Module deleted successfully");
     }
 
-    // Lesson CRUD
     @PostMapping(value = "/modules/{moduleId}/lessons", consumes = MediaType.APPLICATION_JSON_VALUE)
     public LessonResponse createLesson(
             @PathVariable UUID moduleId,
