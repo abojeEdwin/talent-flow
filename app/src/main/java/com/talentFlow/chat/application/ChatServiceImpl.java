@@ -23,6 +23,7 @@ import com.talentFlow.chat.infrastructure.repository.MessageReadReceiptRepositor
 import com.talentFlow.chat.infrastructure.repository.MessageRepository;
 import com.talentFlow.chat.web.dto.*;
 import com.talentFlow.common.exception.ApiException;
+import com.talentFlow.notification.application.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -33,7 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -55,6 +58,7 @@ public class ChatServiceImpl implements ChatService {
     private final ProjectTeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;
 
     @Override
     public Page<SearchUserResponse> searchUsers(String query, Pageable pageable) {
@@ -194,6 +198,7 @@ public class ChatServiceImpl implements ChatService {
 
         MessageResponse response = toMessageResponse(message, sender.getId());
         messagingTemplate.convertAndSend("/topic/chat/" + conversationId, response);
+        notifyRecipients(conversation, message, sender);
 
         return response;
     }
@@ -412,6 +417,48 @@ public class ChatServiceImpl implements ChatService {
                 isRead,
                 message.getCreatedAt()
         );
+    }
+
+    private void notifyRecipients(Conversation conversation, Message message, User sender) {
+        List<UUID> recipientIds = participantRepository.findByConversationId(conversation.getId()).stream()
+                .map(participant -> participant.getUser().getId())
+                .filter(userId -> !userId.equals(sender.getId()))
+                .distinct()
+                .toList();
+
+        if (recipientIds.isEmpty()) {
+            return;
+        }
+
+        String senderName = sender.getFirstName() + " " + sender.getLastName();
+        String conversationLabel = resolveConversationLabel(conversation, senderName);
+        String trimmedContent = message.getContent() == null ? "" : message.getContent().trim();
+        String preview = trimmedContent.length() > 120 ? trimmedContent.substring(0, 117) + "..." : trimmedContent;
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("conversationId", conversation.getId());
+        payload.put("messageId", message.getId());
+        payload.put("senderId", sender.getId());
+        payload.put("senderName", senderName);
+        payload.put("chatType", conversation.getType().name());
+        payload.put("preview", preview);
+
+        for (UUID recipientId : recipientIds) {
+            notificationService.notifyUser(
+                    recipientId,
+                    "CHAT_MESSAGE_RECEIVED",
+                    "New chat message",
+                    senderName + " sent a message in " + conversationLabel + ".",
+                    payload
+            );
+        }
+    }
+
+    private String resolveConversationLabel(Conversation conversation, String senderName) {
+        if (conversation.getName() != null && !conversation.getName().isBlank()) {
+            return conversation.getName();
+        }
+        return conversation.getType() == DIRECT ? "your direct chat with " + senderName : "your chat";
     }
 
     private record ReadEventPayload(UUID userId, List<UUID> messageIds, LocalDateTime readAt) {}
