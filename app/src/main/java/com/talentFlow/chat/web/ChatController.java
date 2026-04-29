@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -55,12 +56,16 @@ public class ChatController {
     }
 
     @GetMapping("/conversations")
-    public Page<ConversationResponse> listConversations(
+    public ResponseEntity<Page<ConversationResponse>> listConversations(
             Authentication authentication,
             @PageableDefault(size = 20) Pageable pageable
     ) {
         User user = getAuthenticatedUser(authentication);
-        return chatService.getUserConversations(user, pageable);
+        Page<ConversationResponse> conversations = chatService.getUserConversations(user, pageable);
+        
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noCache().noStore().mustRevalidate())
+                .body(conversations);
     }
 
     @GetMapping("/conversations/{conversationId}")
@@ -73,13 +78,17 @@ public class ChatController {
     }
 
     @GetMapping("/conversations/{conversationId}/messages")
-    public Page<MessageResponse> getMessages(
+    public ResponseEntity<Page<MessageResponse>> getMessages(
             @PathVariable UUID conversationId,
             Authentication authentication,
             @PageableDefault(size = 50) Pageable pageable
     ) {
         User user = getAuthenticatedUser(authentication);
-        return chatService.getMessages(conversationId, user, pageable);
+        Page<MessageResponse> messages = chatService.getMessages(conversationId, user, pageable);
+        
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noCache().noStore().mustRevalidate())
+                .body(messages);
     }
 
     @PostMapping("/conversations/{conversationId}/messages")

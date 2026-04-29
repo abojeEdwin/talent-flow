@@ -215,7 +215,12 @@ public class ChatServiceImpl implements ChatService {
                 .filter(m -> !readReceiptRepository.existsByMessageIdAndUserId(m.getId(), user.getId()))
                 .toList();
 
+        if (unreadMessages.isEmpty()) {
+            return;
+        }
+
         LocalDateTime now = LocalDateTime.now();
+        List<MessageReadReceipt> receipts = new ArrayList<>();
         List<UUID> messageIds = new ArrayList<>();
 
         for (Message message : unreadMessages) {
@@ -223,14 +228,17 @@ public class ChatServiceImpl implements ChatService {
             receipt.setMessage(message);
             receipt.setUser(user);
             receipt.setReadAt(now);
-            readReceiptRepository.save(receipt);
+            receipts.add(receipt);
             messageIds.add(message.getId());
         }
 
-        if (!messageIds.isEmpty()) {
-            var readEvent = new ReadEventPayload(user.getId(), messageIds, now);
-            messagingTemplate.convertAndSend("/topic/chat/" + conversationId + "/read", readEvent);
-        }
+        // Batch save all receipts
+        readReceiptRepository.saveAll(receipts);
+        readReceiptRepository.flush(); // Force immediate write to database
+
+        // Notify via WebSocket
+        var readEvent = new ReadEventPayload(user.getId(), messageIds, now);
+        messagingTemplate.convertAndSend("/topic/chat/" + conversationId + "/read", readEvent);
     }
 
     @Override
