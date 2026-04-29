@@ -20,7 +20,7 @@ import java.time.Duration;
 @Configuration
 public class RedisCacheConfig implements CachingConfigurer {
     private static final Logger log = LoggerFactory.getLogger(RedisCacheConfig.class);
-    private static final String CACHE_PREFIX = "talent-flow:v3::";
+    private static final String CACHE_PREFIX = "talent-flow:v4::";
 
     @Bean
     public RedisCacheConfiguration cacheConfiguration(ObjectMapper objectMapper) {
@@ -47,8 +47,13 @@ public class RedisCacheConfig implements CachingConfigurer {
         return new CacheErrorHandler() {
             @Override
             public void handleCacheGetError(RuntimeException exception, Cache cache, Object key) {
-                log.warn("Cache read failed for cache='{}' key='{}'. Evicting entry and continuing.", cache.getName(), key, exception);
-                cache.evict(key);
+                log.debug("Cache read failed for cache='{}' key='{}'. Evicting entry and continuing. Error: {}", 
+                    cache.getName(), key, exception.getMessage());
+                try {
+                    cache.evict(key);
+                } catch (Exception e) {
+                    log.warn("Failed to evict cache entry for cache='{}' key='{}'", cache.getName(), key);
+                }
             }
 
             @Override

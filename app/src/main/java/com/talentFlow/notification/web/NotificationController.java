@@ -11,17 +11,22 @@ import com.talentFlow.notification.web.dto.NotificationResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -36,13 +41,18 @@ public class NotificationController {
     private final ObjectMapper objectMapper;
 
     @GetMapping("/")
-    public Page<NotificationResponse> listNotifications(Authentication authentication, Pageable pageable) {
+    public ResponseEntity<Page<NotificationResponse>> listNotifications(Authentication authentication, Pageable pageable) {
         User actor = getActor(authentication);
-        return notificationRepository.findByUserOrderByCreatedAtDesc(actor, pageable)
+        Page<NotificationResponse> notifications = notificationRepository.findByUserOrderByCreatedAtDesc(actor, pageable)
                 .map(this::toResponse);
+        
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noCache().noStore().mustRevalidate())
+                .body(notifications);
     }
 
     @PatchMapping("/{notificationId}/read")
+    @Transactional
     public NotificationResponse markAsRead(@PathVariable UUID notificationId, Authentication authentication) {
         User actor = getActor(authentication);
         Notification notification = notificationRepository.findByIdAndUser(notificationId, actor)
@@ -55,6 +65,33 @@ public class NotificationController {
         }
 
         return toResponse(notification);
+    }
+
+    @PutMapping("/read-all")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> markAllAsRead(Authentication authentication) {
+        User actor = getActor(authentication);
+        LocalDateTime now = LocalDateTime.now();
+        
+        // Find all unread notifications for the user
+        List<Notification> unreadNotifications = notificationRepository.findByUserAndReadFalse(actor);
+        
+        // Mark them all as read
+        int updatedCount = 0;
+        for (Notification notification : unreadNotifications) {
+            notification.setRead(true);
+            notification.setReadAt(now);
+            updatedCount++;
+        }
+        
+        if (updatedCount > 0) {
+            notificationRepository.saveAll(unreadNotifications);
+        }
+        
+        return ResponseEntity.ok(Map.of(
+            "message", "All notifications marked as read",
+            "count", updatedCount
+        ));
     }
 
     private NotificationResponse toResponse(Notification notification) {
