@@ -40,8 +40,6 @@ import java.util.HashMap;
 @RequiredArgsConstructor
 public class AdminCourseServiceImpl implements AdminCourseService {
 
-    //TODO:Implement cache-aside pattern
-
     private final CourseRepository courseRepository;
     private final CourseInstructorRepository courseInstructorRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
@@ -115,7 +113,6 @@ public class AdminCourseServiceImpl implements AdminCourseService {
         if (request.coInstructorIds() != null) {
             allInstructorIds.addAll(request.coInstructorIds());
         }
-
         Set<UUID> previousInstructorIds = courseInstructorRepository.findByCourse(course).stream()
                 .map(ci -> ci.getInstructorUser().getId())
                 .collect(Collectors.toSet());
@@ -131,10 +128,8 @@ public class AdminCourseServiceImpl implements AdminCourseService {
             courseInstructor.setPrimary(instructor.getId().equals(primaryInstructor.getId()));
             courseInstructorRepository.save(courseInstructor);
         }
-
         audit(actor, "COURSE_INSTRUCTORS_ASSIGNED", "COURSE", course.getId(),
                 "Assigned instructors: " + allInstructorIds);
-
         notifyInstructorAssignments(course, previousInstructorIds, allInstructorIds);
         return toCourseResponse(course);
     }
