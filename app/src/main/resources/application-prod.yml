@@ -12,6 +12,21 @@ spring:
     s3-bucket-secret-key: ${S3_BUCKET_SECRET_KEY:}
     s3-bucket-region: ${S3_BUCKET_REGION:us-east-1}
     s3-bucket-name: ${S3_BUCKET_NAME:}
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000
+      cache-null-values: false
+  jpa:
+    defer-datasource-initialization: true
+  main:
+    lazy-initialization: true
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
 
 server:
   port: ${PORT:8080}
@@ -46,11 +61,7 @@ app:
       first-name: ${ADMIN_SEED_FIRST_NAME}
       last-name: ${ADMIN_SEED_LAST_NAME}
       update-password: ${ADMIN_SEED_UPDATE_PASSWORD:false}
+
   mail:
     from: ${EMAIL_FROM}
 
-
-  jpa:
-      defer-datasource-initialization: true
-  main:
-      lazy-initialization: true
