@@ -41,6 +41,9 @@ import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,10 +73,6 @@ public class InstructorServiceImpl implements InstructorService {
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final MediaUploadQueueService mediaUploadQueueService;
     private final NotificationService notificationService;
-
-    //TODO:Validate assignment existence before create one.
-    //TODO:Implement features [Grade assignment, Get assignment, Delete assignment]
-
 
     @Override
     @Transactional
@@ -138,15 +137,19 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "my-courses", key = "#actor.id")
-    //TODO: Add pagination and filtering by status (draft/published/archived)
-    public List<CourseResponse> listMyCourses(User actor) {
+    public Page<CourseResponse> listMyCourses(User actor, CourseStatus status, Pageable pageable) {
         ensureInstructor(actor);
-        return courseInstructorRepository.findByInstructorUser(actor).stream()
+        List<Course> allCourses = courseInstructorRepository.findByInstructorUser(actor).stream()
                 .map(CourseInstructor::getCourse)
                 .distinct()
+                .filter(c -> status == null || c.getStatus() == status)
+                .toList();
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), allCourses.size());
+        List<CourseResponse> pageContent = allCourses.subList(start, end).stream()
                 .map(this::toCourseResponse)
                 .toList();
+        return new PageImpl<>(pageContent, pageable, allCourses.size());
     }
 
     @Override
@@ -172,18 +175,17 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "course-modules", key = "#courseId")
-    //TODO:Add pagination
-    public List<CourseModuleResponse> listCourseModules(UUID courseId, User actor) {
+    public Page<CourseModuleResponse> listCourseModules(UUID courseId, User actor, Pageable pageable) {
         Course course = getCourseAndCheckInstructor(courseId, actor);
-        List<CourseModule> modules = courseModuleRepository.findByCourseOrderByPositionAsc(course);
-        List<Lesson> lessons = lessonRepository.findByModuleInOrderByModule_PositionAscPositionAsc(modules);
-        
+        Page<CourseModule> modulePage = courseModuleRepository.findByCourseOrderByPositionAsc(course, pageable);
+        List<Lesson> lessons = lessonRepository.findByModuleInOrderByModule_PositionAscPositionAsc(modulePage.getContent());
+
         var lessonsByModule = lessons.stream().collect(Collectors.groupingBy(l -> l.getModule().getId()));
 
-        return modules.stream()
+        List<CourseModuleResponse> content = modulePage.getContent().stream()
                 .map(module -> toModuleResponse(module, lessonsByModule.getOrDefault(module.getId(), new ArrayList<>())))
                 .toList();
+        return new PageImpl<>(content, pageable, modulePage.getTotalElements());
     }
 
     @Override
@@ -344,9 +346,13 @@ public class InstructorServiceImpl implements InstructorService {
     @CacheEvict(value = "learner-progress", key = "#courseId")
     public AssignmentResponse createAssignment(UUID courseId, CreateAssignmentRequest request, User actor) {
         Course course = getCourseAndCheckInstructor(courseId, actor);
+        String trimmedTitle = request.title().trim();
+        if (assignmentRepository.findByCourseAndTitleIgnoreCase(course, trimmedTitle).isPresent()) {
+            throw new ApiException(HttpStatus.CONFLICT, "An assignment with this title already exists in this course");
+        }
         Assignment assignment = new Assignment();
         assignment.setCourse(course);
-        assignment.setTitle(request.title().trim());
+        assignment.setTitle(trimmedTitle);
         assignment.setInstructions(request.instructions());
         assignment.setDueAt(request.dueAt());
         assignment.setMaxScore(request.maxScore());
@@ -395,6 +401,32 @@ public class InstructorServiceImpl implements InstructorService {
                     averageScore
             );
         }).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AssignmentResponse getAssignment(UUID assignmentId, User actor) {
+        Assignment assignment = getAssignmentAndCheckInstructor(assignmentId, actor);
+        return new AssignmentResponse(
+                assignment.getId(),
+                assignment.getCourse().getId(),
+                assignment.getTitle(),
+                assignment.getInstructions(),
+                assignment.getDueAt(),
+                assignment.getMaxScore(),
+                assignment.getCreatedByUser().getId()
+        );
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = "learner-progress", key = "#assignment.course.id")
+    public void deleteAssignment(UUID assignmentId, User actor) {
+        Assignment assignment = getAssignmentAndCheckInstructor(assignmentId, actor);
+        if (assignmentSubmissionRepository.existsByAssignment(assignment)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Cannot delete assignment that has submissions. Remove submissions first.");
+        }
+        assignmentRepository.delete(assignment);
     }
 
     @Override
@@ -527,6 +559,18 @@ public class InstructorServiceImpl implements InstructorService {
             throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
         }
         return lesson;
+    }
+
+    private Assignment getAssignmentAndCheckInstructor(UUID assignmentId, User actor) {
+        ensureInstructor(actor);
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Assignment not found"));
+        Course course = assignment.getCourse();
+        boolean isCourseInstructor = courseInstructorRepository.findByCourseAndInstructorUser(course, actor).isPresent();
+        if (!isCourseInstructor && !isAdmin(actor)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
+        }
+        return assignment;
     }
 
     private void ensureInstructor(User actor) {

@@ -14,11 +14,14 @@ import com.talentFlow.course.web.dto.CreateLessonRequest;
 import com.talentFlow.course.web.dto.LearnerProgressResponse;
 import com.talentFlow.course.web.dto.LessonResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
+import com.talentFlow.course.domain.enums.CourseStatus;
 import com.talentFlow.course.domain.enums.LessonType;
 import com.talentFlow.common.response.ApiMessageResponse;
 import com.talentFlow.instructor.application.InstructorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -66,8 +69,14 @@ public class InstructorController {
     }
 
     @GetMapping("/my-courses")
-    public List<CourseResponse> listMyCourses(Authentication authentication) {
-        return instructorService.listMyCourses(getActor(authentication));
+    public Page<CourseResponse> listMyCourses(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication
+    ) {
+        CourseStatus courseStatus = status != null ? CourseStatus.valueOf(status.toUpperCase()) : null;
+        return instructorService.listMyCourses(getActor(authentication), courseStatus, PageRequest.of(page, size));
     }
 
     @PostMapping("/courses/{courseId}/modules")
@@ -80,11 +89,13 @@ public class InstructorController {
     }
 
     @GetMapping("/courses/{courseId}/modules")
-    public List<CourseModuleResponse> listCourseModules(
+    public Page<CourseModuleResponse> listCourseModules(
             @PathVariable UUID courseId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
             Authentication authentication
     ) {
-        return instructorService.listCourseModules(courseId, getActor(authentication));
+        return instructorService.listCourseModules(courseId, getActor(authentication), PageRequest.of(page, size));
     }
 
     @PutMapping("/modules/{moduleId}")
@@ -171,6 +182,23 @@ public class InstructorController {
             Authentication authentication
     ) {
         return instructorService.createAssignment(courseId, request, getActor(authentication));
+    }
+
+    @GetMapping("/assignments/{assignmentId}")
+    public AssignmentResponse getAssignment(
+            @PathVariable UUID assignmentId,
+            Authentication authentication
+    ) {
+        return instructorService.getAssignment(assignmentId, getActor(authentication));
+    }
+
+    @DeleteMapping("/assignments/{assignmentId}")
+    public ApiMessageResponse deleteAssignment(
+            @PathVariable UUID assignmentId,
+            Authentication authentication
+    ) {
+        instructorService.deleteAssignment(assignmentId, getActor(authentication));
+        return new ApiMessageResponse("Assignment deleted successfully");
     }
 
     @GetMapping("/courses/{courseId}/progress")

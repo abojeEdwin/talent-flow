@@ -12,7 +12,10 @@ import com.talentFlow.course.web.dto.CreateLessonRequest;
 import com.talentFlow.course.web.dto.LearnerProgressResponse;
 import com.talentFlow.course.web.dto.LessonResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
+import com.talentFlow.course.domain.enums.CourseStatus;
 import com.talentFlow.course.domain.enums.LessonType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -27,11 +30,11 @@ public interface InstructorService {
                                          MultipartFile introVideo,
                                          User actor);
 
-    List<CourseResponse> listMyCourses(User actor);
+    Page<CourseResponse> listMyCourses(User actor, CourseStatus status, Pageable pageable);
 
     CourseModuleResponse createCourseModule(UUID courseId, CreateCourseModuleRequest request, User actor);
 
-    List<CourseModuleResponse> listCourseModules(UUID courseId, User actor);
+    Page<CourseModuleResponse> listCourseModules(UUID courseId, User actor, Pageable pageable);
 
     CourseModuleResponse updateCourseModule(UUID moduleId, CreateCourseModuleRequest request, User actor);
 
@@ -60,6 +63,10 @@ public interface InstructorService {
     void deleteLesson(UUID lessonId, User actor);
 
     AssignmentResponse createAssignment(UUID courseId, CreateAssignmentRequest request, User actor);
+
+    AssignmentResponse getAssignment(UUID assignmentId, User actor);
+
+    void deleteAssignment(UUID assignmentId, User actor);
 
     List<LearnerProgressResponse> monitorLearnerProgress(UUID courseId, User actor);
 
