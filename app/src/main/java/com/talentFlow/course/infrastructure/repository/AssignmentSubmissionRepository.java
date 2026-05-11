@@ -10,4 +10,6 @@ import java.util.UUID;
 
 public interface AssignmentSubmissionRepository extends JpaRepository<AssignmentSubmission, UUID> {
     List<AssignmentSubmission> findByAssignmentInAndLearnerUser(List<Assignment> assignments, User learnerUser);
+
+    boolean existsByAssignment(Assignment assignment);
 }
