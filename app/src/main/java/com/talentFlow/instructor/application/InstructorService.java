@@ -9,6 +9,7 @@ import com.talentFlow.course.web.dto.CreateAssignmentRequest;
 import com.talentFlow.course.web.dto.CreateCourseModuleRequest;
 import com.talentFlow.course.web.dto.CreateCourseRequest;
 import com.talentFlow.course.web.dto.CreateLessonRequest;
+import com.talentFlow.course.web.dto.InstructorProgressResponse;
 import com.talentFlow.course.web.dto.LearnerProgressResponse;
 import com.talentFlow.course.web.dto.LessonResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
@@ -64,9 +65,13 @@ public interface InstructorService {
 
     AssignmentResponse createAssignment(UUID courseId, CreateAssignmentRequest request, User actor);
 
+    Page<AssignmentResponse> listAssignments(User actor, Pageable pageable);
+
     AssignmentResponse getAssignment(UUID assignmentId, User actor);
 
     void deleteAssignment(UUID assignmentId, User actor);
+
+    Page<InstructorProgressResponse> listProgress(User actor, Pageable pageable);
 
     List<LearnerProgressResponse> monitorLearnerProgress(UUID courseId, User actor);
 

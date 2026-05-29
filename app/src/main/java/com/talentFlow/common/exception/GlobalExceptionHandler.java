@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -61,6 +62,14 @@ public class GlobalExceptionHandler {
 
         log.warn("Type mismatch at path {} for parameter {}: {}", request.getRequestURI(), parameterName, exception.getValue());
         return ResponseEntity.badRequest().body(buildBody(HttpStatus.BAD_REQUEST, message, request));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(NoResourceFoundException exception,
+                                                                     HttpServletRequest request) {
+        log.warn("No route or static resource found for path {}", request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(buildBody(HttpStatus.NOT_FOUND, "Resource not found", request));
     }
 
     @ExceptionHandler(Exception.class)

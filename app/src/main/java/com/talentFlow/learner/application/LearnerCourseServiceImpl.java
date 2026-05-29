@@ -62,7 +62,6 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     private final NotificationService notificationService;
     private final CacheManager cacheManager;
 
-    //TODO: Refactor methods to separate service.
 
     private static final String CACHE_PUBLISHED_COURSES = "publishedCourses";
     private static final String CACHE_MY_ENROLLMENTS = "myEnrollments";

@@ -11,6 +11,7 @@ import com.talentFlow.course.web.dto.CreateAssignmentRequest;
 import com.talentFlow.course.web.dto.CreateCourseModuleRequest;
 import com.talentFlow.course.web.dto.CreateCourseRequest;
 import com.talentFlow.course.web.dto.CreateLessonRequest;
+import com.talentFlow.course.web.dto.InstructorProgressResponse;
 import com.talentFlow.course.web.dto.LearnerProgressResponse;
 import com.talentFlow.course.web.dto.LessonResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
@@ -184,6 +185,15 @@ public class InstructorController {
         return instructorService.createAssignment(courseId, request, getActor(authentication));
     }
 
+    @GetMapping("/assignments")
+    public Page<AssignmentResponse> listAssignments(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication
+    ) {
+        return instructorService.listAssignments(getActor(authentication), PageRequest.of(page, size));
+    }
+
     @GetMapping("/assignments/{assignmentId}")
     public AssignmentResponse getAssignment(
             @PathVariable UUID assignmentId,
@@ -199,6 +209,15 @@ public class InstructorController {
     ) {
         instructorService.deleteAssignment(assignmentId, getActor(authentication));
         return new ApiMessageResponse("Assignment deleted successfully");
+    }
+
+    @GetMapping("/progress")
+    public Page<InstructorProgressResponse> listProgress(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication
+    ) {
+        return instructorService.listProgress(getActor(authentication), PageRequest.of(page, size));
     }
 
     @GetMapping("/courses/{courseId}/progress")

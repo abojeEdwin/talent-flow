@@ -4,6 +4,8 @@ import com.talentFlow.auth.domain.User;
 import com.talentFlow.course.domain.Course;
 import com.talentFlow.course.domain.CourseEnrollment;
 import com.talentFlow.course.domain.enums.EnrollmentStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -14,6 +16,8 @@ public interface CourseEnrollmentRepository extends JpaRepository<CourseEnrollme
     Optional<CourseEnrollment> findByCourseAndUser(Course course, User user);
 
     List<CourseEnrollment> findByCourseAndStatus(Course course, EnrollmentStatus status);
+
+    Page<CourseEnrollment> findByCourseInAndStatusIn(List<Course> courses, List<EnrollmentStatus> statuses, Pageable pageable);
 
     List<CourseEnrollment> findByUserAndStatus(User user, EnrollmentStatus status);
     List<CourseEnrollment> findByUser(User user);

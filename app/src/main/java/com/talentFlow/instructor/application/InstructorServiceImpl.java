@@ -35,6 +35,7 @@ import com.talentFlow.course.web.dto.CreateAssignmentRequest;
 import com.talentFlow.course.web.dto.CreateCourseModuleRequest;
 import com.talentFlow.course.web.dto.CreateCourseRequest;
 import com.talentFlow.course.web.dto.CreateLessonRequest;
+import com.talentFlow.course.web.dto.InstructorProgressResponse;
 import com.talentFlow.course.web.dto.LearnerProgressResponse;
 import com.talentFlow.course.web.dto.LessonResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
@@ -196,7 +197,7 @@ public class InstructorServiceImpl implements InstructorService {
         module.setTitle(request.title().trim());
         module.setPosition(request.position());
         CourseModule saved = courseModuleRepository.save(module);
-        
+
         List<Lesson> lessons = lessonRepository.findByModuleOrderByPositionAsc(saved);
         return toModuleResponse(saved, lessons);
     }
@@ -240,11 +241,11 @@ public class InstructorServiceImpl implements InstructorService {
     @Transactional
     @CacheEvict(value = "course-modules", key = "#module.course.id")
     public LessonResponse createLessonWithFile(UUID moduleId,
-                                                String title,
-                                                LessonType lessonType,
-                                                Integer position,
-                                                MultipartFile file,
-                                                User actor) {
+                                               String title,
+                                               LessonType lessonType,
+                                               Integer position,
+                                               MultipartFile file,
+                                               User actor) {
         if (title == null || title.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Lesson title is required");
         }
@@ -298,7 +299,7 @@ public class InstructorServiceImpl implements InstructorService {
         lesson.setPosition(request.position());
         lesson.setContentUrl(request.contentUrl());
         lesson.setContentText(request.contentText());
-        
+
         Lesson saved = lessonRepository.save(lesson);
         return toLessonResponse(saved);
     }
@@ -307,11 +308,11 @@ public class InstructorServiceImpl implements InstructorService {
     @Transactional
     @CacheEvict(value = "course-modules", key = "#lesson.module.course.id")
     public LessonResponse updateLessonWithFile(UUID lessonId,
-                                                String title,
-                                                LessonType lessonType,
-                                                Integer position,
-                                                MultipartFile file,
-                                                User actor) {
+                                               String title,
+                                               LessonType lessonType,
+                                               Integer position,
+                                               MultipartFile file,
+                                               User actor) {
         Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
         lesson.setTitle(title.trim());
         lesson.setLessonType(lessonType);
@@ -334,293 +335,374 @@ public class InstructorServiceImpl implements InstructorService {
     }
 
     @Override
-    @Transactional
-    @CacheEvict(value = "course-modules", key = "#lesson.module.course.id")
-    public void deleteLesson(UUID lessonId, User actor) {
-        Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
-        lessonRepository.delete(lesson);
-    }
-
-    @Override
-    @Transactional
-    @CacheEvict(value = "learner-progress", key = "#courseId")
-    public AssignmentResponse createAssignment(UUID courseId, CreateAssignmentRequest request, User actor) {
-        Course course = getCourseAndCheckInstructor(courseId, actor);
-        String trimmedTitle = request.title().trim();
-        if (assignmentRepository.findByCourseAndTitleIgnoreCase(course, trimmedTitle).isPresent()) {
-            throw new ApiException(HttpStatus.CONFLICT, "An assignment with this title already exists in this course");
+        @Transactional
+        @CacheEvict(value = "course-modules", key = "#lesson.module.course.id")
+        public void deleteLesson (UUID lessonId, User actor){
+            Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
+            lessonRepository.delete(lesson);
         }
-        Assignment assignment = new Assignment();
-        assignment.setCourse(course);
-        assignment.setTitle(trimmedTitle);
-        assignment.setInstructions(request.instructions());
-        assignment.setDueAt(request.dueAt());
-        assignment.setMaxScore(request.maxScore());
-        assignment.setCreatedByUser(actor);
-        Assignment saved = assignmentRepository.save(assignment);
-        notifyAssignmentCreated(course, saved);
-        return new AssignmentResponse(
-                saved.getId(),
-                course.getId(),
-                saved.getTitle(),
-                saved.getInstructions(),
-                saved.getDueAt(),
-                saved.getMaxScore(),
-                actor.getId()
-        );
-    }
 
-    @Override
-    @Transactional(readOnly = true)
-    @Cacheable(value = "learner-progress", key = "#courseId")
-    public List<LearnerProgressResponse> monitorLearnerProgress(UUID courseId, User actor) {
-        Course course = getCourseAndCheckInstructor(courseId, actor);
-        List<Assignment> assignments = assignmentRepository.findByCourse(course);
-        List<CourseEnrollment> enrollments = courseEnrollmentRepository.findByCourseAndStatus(course, EnrollmentStatus.ENROLLED);
-
-        return enrollments.stream().map(enrollment -> {
-            User learner = enrollment.getUser();
-            List<AssignmentSubmission> submissions = assignments.isEmpty()
-                    ? List.of()
-                    : assignmentSubmissionRepository.findByAssignmentInAndLearnerUser(assignments, learner);
-            int total = assignments.size();
-            int submitted = submissions.size();
-            BigDecimal avg = submissions.stream()
-                    .map(AssignmentSubmission::getScore)
-                    .filter(score -> score != null)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            long scoredCount = submissions.stream().map(AssignmentSubmission::getScore).filter(s -> s != null).count();
-            BigDecimal averageScore = scoredCount == 0 ? BigDecimal.ZERO : avg.divide(BigDecimal.valueOf(scoredCount), 2, RoundingMode.HALF_UP);
-
-            return new LearnerProgressResponse(
-                    learner.getId(),
-                    learner.getEmail(),
-                    learner.getFirstName() + " " + learner.getLastName(),
-                    total,
-                    submitted,
-                    averageScore
+        @Override
+        @Transactional
+        @CacheEvict(value = "learner-progress", key = "#courseId")
+        public AssignmentResponse createAssignment (UUID courseId, CreateAssignmentRequest request, User actor){
+            Course course = getCourseAndCheckInstructor(courseId, actor);
+            String trimmedTitle = request.title().trim();
+            if (assignmentRepository.findByCourseAndTitleIgnoreCase(course, trimmedTitle).isPresent()) {
+                throw new ApiException(HttpStatus.CONFLICT, "An assignment with this title already exists in this course");
+            }
+            Assignment assignment = new Assignment();
+            assignment.setCourse(course);
+            assignment.setTitle(trimmedTitle);
+            assignment.setInstructions(request.instructions());
+            assignment.setDueAt(request.dueAt());
+            assignment.setMaxScore(request.maxScore());
+            assignment.setCreatedByUser(actor);
+            Assignment saved = assignmentRepository.save(assignment);
+            notifyAssignmentCreated(course, saved);
+            return new AssignmentResponse(
+                    saved.getId(),
+                    course.getId(),
+                    saved.getTitle(),
+                    saved.getInstructions(),
+                    saved.getDueAt(),
+                    saved.getMaxScore(),
+                    actor.getId()
             );
-        }).toList();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public AssignmentResponse getAssignment(UUID assignmentId, User actor) {
-        Assignment assignment = getAssignmentAndCheckInstructor(assignmentId, actor);
-        return new AssignmentResponse(
-                assignment.getId(),
-                assignment.getCourse().getId(),
-                assignment.getTitle(),
-                assignment.getInstructions(),
-                assignment.getDueAt(),
-                assignment.getMaxScore(),
-                assignment.getCreatedByUser().getId()
-        );
-    }
-
-    @Override
-    @Transactional
-    @CacheEvict(value = "learner-progress", key = "#assignment.course.id")
-    public void deleteAssignment(UUID assignmentId, User actor) {
-        Assignment assignment = getAssignmentAndCheckInstructor(assignmentId, actor);
-        if (assignmentSubmissionRepository.existsByAssignment(assignment)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Cannot delete assignment that has submissions. Remove submissions first.");
-        }
-        assignmentRepository.delete(assignment);
-    }
-
-    @Override
-    @Transactional
-    @CacheEvict(value = "learner-progress", key = "#submission.assignment.course.id")
-    public AssignmentFeedbackResponse provideFeedback(UUID submissionId, ProvideFeedbackRequest request, User actor) {
-        ensureInstructor(actor);
-        AssignmentSubmission submission = assignmentSubmissionRepository.findById(submissionId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Submission not found"));
-
-        Course course = submission.getAssignment().getCourse();
-        boolean isCourseInstructor = courseInstructorRepository.findByCourseAndInstructorUser(course, actor).isPresent();
-        if (!isCourseInstructor && !isAdmin(actor)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
         }
 
-        if (request.score() != null) {
-            submission.setScore(request.score());
-            submission.setStatus(SubmissionStatus.GRADED);
-            assignmentSubmissionRepository.save(submission);
-            notifyAssignmentGraded(submission);
+        @Override
+        @Transactional(readOnly = true)
+        public Page<AssignmentResponse> listAssignments (User actor, Pageable pageable){
+            ensureInstructor(actor);
+            Page<Assignment> assignmentPage;
+            if (isAdmin(actor)) {
+                assignmentPage = assignmentRepository.findAll(pageable);
+            } else {
+                List<Course> courses = courseInstructorRepository.findByInstructorUser(actor).stream()
+                        .map(CourseInstructor::getCourse)
+                        .distinct()
+                        .toList();
+                if (courses.isEmpty()) {
+                    return Page.empty(pageable);
+                }
+                assignmentPage = assignmentRepository.findByCourseIn(courses, pageable);
+            }
+            return assignmentPage.map(this::toAssignmentResponse);
         }
 
-        AssignmentFeedback feedback = new AssignmentFeedback();
-        feedback.setSubmission(submission);
-        feedback.setInstructorUser(actor);
-        feedback.setComment(request.comment().trim());
-        AssignmentFeedback saved = assignmentFeedbackRepository.save(feedback);
-        notifyFeedbackAdded(submission, saved.getComment());
+        @Override
+        @Transactional(readOnly = true)
+        public Page<InstructorProgressResponse> listProgress (User actor, Pageable pageable){
+            ensureInstructor(actor);
+            List<Course> courses = isAdmin(actor)
+                    ? courseRepository.findAll()
+                    : courseInstructorRepository.findByInstructorUser(actor).stream()
+                    .map(CourseInstructor::getCourse)
+                    .distinct()
+                    .toList();
 
-        return new AssignmentFeedbackResponse(
-                saved.getId(),
-                submission.getId(),
-                actor.getId(),
-                saved.getComment()
-        );
-    }
+            if (courses.isEmpty()) {
+                return Page.empty(pageable);
+            }
 
-    private void notifyAssignmentCreated(Course course, Assignment assignment) {
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("courseId", course.getId());
-        payload.put("courseTitle", course.getTitle());
-        payload.put("assignmentId", assignment.getId());
-        payload.put("assignmentTitle", assignment.getTitle());
-        payload.put("dueAt", assignment.getDueAt());
+            Page<CourseEnrollment> enrollmentPage = courseEnrollmentRepository.findByCourseInAndStatusIn(
+                    courses,
+                    List.of(EnrollmentStatus.ENROLLED, EnrollmentStatus.COMPLETED),
+                    pageable
+            );
+            return enrollmentPage.map(this::toInstructorProgressResponse);
+        }
 
-        Set<UUID> learnerIds = courseEnrollmentRepository.findByCourseAndStatus(course, EnrollmentStatus.ENROLLED).stream()
-                .map(enrollment -> enrollment.getUser().getId())
-                .collect(Collectors.toSet());
-        learnerIds.addAll(courseEnrollmentRepository.findByCourseAndStatus(course, EnrollmentStatus.COMPLETED).stream()
-                .map(enrollment -> enrollment.getUser().getId())
-                .collect(Collectors.toSet()));
+        @Override
+        @Transactional(readOnly = true)
+        @Cacheable(value = "learner-progress", key = "#courseId")
+        public List<LearnerProgressResponse> monitorLearnerProgress (UUID courseId, User actor){
+            Course course = getCourseAndCheckInstructor(courseId, actor);
+            List<Assignment> assignments = assignmentRepository.findByCourse(course);
+            List<CourseEnrollment> enrollments = courseEnrollmentRepository.findByCourseAndStatus(course, EnrollmentStatus.ENROLLED);
 
-        for (UUID learnerId : learnerIds) {
+            return enrollments.stream().map(enrollment -> {
+                User learner = enrollment.getUser();
+                List<AssignmentSubmission> submissions = assignments.isEmpty()
+                        ? List.of()
+                        : assignmentSubmissionRepository.findByAssignmentInAndLearnerUser(assignments, learner);
+                int total = assignments.size();
+                int submitted = submissions.size();
+                BigDecimal avg = submissions.stream()
+                        .map(AssignmentSubmission::getScore)
+                        .filter(score -> score != null)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                long scoredCount = submissions.stream().map(AssignmentSubmission::getScore).filter(s -> s != null).count();
+                BigDecimal averageScore = scoredCount == 0 ? BigDecimal.ZERO : avg.divide(BigDecimal.valueOf(scoredCount), 2, RoundingMode.HALF_UP);
+
+                return new LearnerProgressResponse(
+                        learner.getId(),
+                        learner.getEmail(),
+                        learner.getFirstName() + " " + learner.getLastName(),
+                        total,
+                        submitted,
+                        averageScore
+                );
+            }).toList();
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public AssignmentResponse getAssignment (UUID assignmentId, User actor){
+            Assignment assignment = getAssignmentAndCheckInstructor(assignmentId, actor);
+            return toAssignmentResponse(assignment);
+        }
+
+        @Override
+        @Transactional
+        @CacheEvict(value = "learner-progress", key = "#assignment.course.id")
+        public void deleteAssignment (UUID assignmentId, User actor){
+            Assignment assignment = getAssignmentAndCheckInstructor(assignmentId, actor);
+            if (assignmentSubmissionRepository.existsByAssignment(assignment)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Cannot delete assignment that has submissions. Remove submissions first.");
+            }
+            assignmentRepository.delete(assignment);
+        }
+
+        @Override
+        @Transactional
+        @CacheEvict(value = "learner-progress", key = "#submission.assignment.course.id")
+        public AssignmentFeedbackResponse provideFeedback (UUID submissionId, ProvideFeedbackRequest request, User actor)
+        {
+            ensureInstructor(actor);
+            AssignmentSubmission submission = assignmentSubmissionRepository.findById(submissionId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Submission not found"));
+
+            Course course = submission.getAssignment().getCourse();
+            boolean isCourseInstructor = courseInstructorRepository.findByCourseAndInstructorUser(course, actor).isPresent();
+            if (!isCourseInstructor && !isAdmin(actor)) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
+            }
+
+            if (request.score() != null) {
+                submission.setScore(request.score());
+                submission.setStatus(SubmissionStatus.GRADED);
+                assignmentSubmissionRepository.save(submission);
+                notifyAssignmentGraded(submission);
+            }
+
+            AssignmentFeedback feedback = new AssignmentFeedback();
+            feedback.setSubmission(submission);
+            feedback.setInstructorUser(actor);
+            feedback.setComment(request.comment().trim());
+            AssignmentFeedback saved = assignmentFeedbackRepository.save(feedback);
+            notifyFeedbackAdded(submission, saved.getComment());
+
+            return new AssignmentFeedbackResponse(
+                    saved.getId(),
+                    submission.getId(),
+                    actor.getId(),
+                    saved.getComment()
+            );
+        }
+
+        private void notifyAssignmentCreated (Course course, Assignment assignment){
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("courseId", course.getId());
+            payload.put("courseTitle", course.getTitle());
+            payload.put("assignmentId", assignment.getId());
+            payload.put("assignmentTitle", assignment.getTitle());
+            payload.put("dueAt", assignment.getDueAt());
+
+            Set<UUID> learnerIds = courseEnrollmentRepository.findByCourseAndStatus(course, EnrollmentStatus.ENROLLED).stream()
+                    .map(enrollment -> enrollment.getUser().getId())
+                    .collect(Collectors.toSet());
+            learnerIds.addAll(courseEnrollmentRepository.findByCourseAndStatus(course, EnrollmentStatus.COMPLETED).stream()
+                    .map(enrollment -> enrollment.getUser().getId())
+                    .collect(Collectors.toSet()));
+
+            for (UUID learnerId : learnerIds) {
+                notificationService.notifyUser(
+                        learnerId,
+                        "ASSIGNMENT_CREATED",
+                        "New assignment available",
+                        "A new assignment was created for " + course.getTitle() + ".",
+                        payload
+                );
+            }
+        }
+
+        private void notifyAssignmentGraded (AssignmentSubmission submission){
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("submissionId", submission.getId());
+            payload.put("assignmentId", submission.getAssignment().getId());
+            payload.put("assignmentTitle", submission.getAssignment().getTitle());
+            payload.put("courseId", submission.getAssignment().getCourse().getId());
+            payload.put("score", submission.getScore());
+            payload.put("status", submission.getStatus().name());
+
             notificationService.notifyUser(
-                    learnerId,
-                    "ASSIGNMENT_CREATED",
-                    "New assignment available",
-                    "A new assignment was created for " + course.getTitle() + ".",
+                    submission.getLearnerUser().getId(),
+                    "ASSIGNMENT_GRADED",
+                    "Assignment graded",
+                    "Your assignment has been graded.",
                     payload
             );
         }
-    }
 
-    private void notifyAssignmentGraded(AssignmentSubmission submission) {
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("submissionId", submission.getId());
-        payload.put("assignmentId", submission.getAssignment().getId());
-        payload.put("assignmentTitle", submission.getAssignment().getTitle());
-        payload.put("courseId", submission.getAssignment().getCourse().getId());
-        payload.put("score", submission.getScore());
-        payload.put("status", submission.getStatus().name());
+        private void notifyFeedbackAdded (AssignmentSubmission submission, String comment){
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("submissionId", submission.getId());
+            payload.put("assignmentId", submission.getAssignment().getId());
+            payload.put("assignmentTitle", submission.getAssignment().getTitle());
+            payload.put("courseId", submission.getAssignment().getCourse().getId());
+            payload.put("comment", comment);
 
-        notificationService.notifyUser(
-                submission.getLearnerUser().getId(),
-                "ASSIGNMENT_GRADED",
-                "Assignment graded",
-                "Your assignment has been graded.",
-                payload
-        );
-    }
-
-    private void notifyFeedbackAdded(AssignmentSubmission submission, String comment) {
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("submissionId", submission.getId());
-        payload.put("assignmentId", submission.getAssignment().getId());
-        payload.put("assignmentTitle", submission.getAssignment().getTitle());
-        payload.put("courseId", submission.getAssignment().getCourse().getId());
-        payload.put("comment", comment);
-
-        notificationService.notifyUser(
-                submission.getLearnerUser().getId(),
-                "FEEDBACK_ADDED",
-                "New instructor feedback",
-                "Your submission received instructor feedback.",
-                payload
-        );
-    }
-
-    private Course getCourseAndCheckInstructor(UUID courseId, User actor) {
-        ensureInstructor(actor);
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Course not found"));
-        boolean isCourseInstructor = courseInstructorRepository.findByCourseAndInstructorUser(course, actor).isPresent();
-        if (!isCourseInstructor && !isAdmin(actor)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
+            notificationService.notifyUser(
+                    submission.getLearnerUser().getId(),
+                    "FEEDBACK_ADDED",
+                    "New instructor feedback",
+                    "Your submission received instructor feedback.",
+                    payload
+            );
         }
-        return course;
-    }
 
-    private CourseModule getModuleAndCheckInstructor(UUID moduleId, User actor) {
-        ensureInstructor(actor);
-        CourseModule module = courseModuleRepository.findById(moduleId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Module not found"));
-        Course course = module.getCourse();
-        boolean isCourseInstructor = courseInstructorRepository.findByCourseAndInstructorUser(course, actor).isPresent();
-        if (!isCourseInstructor && !isAdmin(actor)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
+        private Course getCourseAndCheckInstructor (UUID courseId, User actor){
+            ensureInstructor(actor);
+            Course course = courseRepository.findById(courseId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Course not found"));
+            boolean isCourseInstructor = courseInstructorRepository.findByCourseAndInstructorUser(course, actor).isPresent();
+            if (!isCourseInstructor && !isAdmin(actor)) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
+            }
+            return course;
         }
-        return module;
-    }
 
-    private Lesson getLessonAndCheckInstructor(UUID lessonId, User actor) {
-        ensureInstructor(actor);
-        Lesson lesson = lessonRepository.findById(lessonId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Lesson not found"));
-        Course course = lesson.getModule().getCourse();
-        boolean isCourseInstructor = courseInstructorRepository.findByCourseAndInstructorUser(course, actor).isPresent();
-        if (!isCourseInstructor && !isAdmin(actor)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
+        private CourseModule getModuleAndCheckInstructor (UUID moduleId, User actor){
+            ensureInstructor(actor);
+            CourseModule module = courseModuleRepository.findById(moduleId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Module not found"));
+            Course course = module.getCourse();
+            boolean isCourseInstructor = courseInstructorRepository.findByCourseAndInstructorUser(course, actor).isPresent();
+            if (!isCourseInstructor && !isAdmin(actor)) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
+            }
+            return module;
         }
-        return lesson;
-    }
 
-    private Assignment getAssignmentAndCheckInstructor(UUID assignmentId, User actor) {
-        ensureInstructor(actor);
-        Assignment assignment = assignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Assignment not found"));
-        Course course = assignment.getCourse();
-        boolean isCourseInstructor = courseInstructorRepository.findByCourseAndInstructorUser(course, actor).isPresent();
-        if (!isCourseInstructor && !isAdmin(actor)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
+        private Lesson getLessonAndCheckInstructor (UUID lessonId, User actor){
+            ensureInstructor(actor);
+            Lesson lesson = lessonRepository.findById(lessonId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Lesson not found"));
+            Course course = lesson.getModule().getCourse();
+            boolean isCourseInstructor = courseInstructorRepository.findByCourseAndInstructorUser(course, actor).isPresent();
+            if (!isCourseInstructor && !isAdmin(actor)) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
+            }
+            return lesson;
         }
-        return assignment;
-    }
 
-    private void ensureInstructor(User actor) {
-        boolean instructor = actor.getRole() == RoleName.INSTRUCTOR || actor.getRole() == RoleName.ADMIN;
-        if (!instructor) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Instructor role required");
+        private Assignment getAssignmentAndCheckInstructor (UUID assignmentId, User actor){
+            ensureInstructor(actor);
+            Assignment assignment = assignmentRepository.findById(assignmentId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Assignment not found"));
+            Course course = assignment.getCourse();
+            boolean isCourseInstructor = courseInstructorRepository.findByCourseAndInstructorUser(course, actor).isPresent();
+            if (!isCourseInstructor && !isAdmin(actor)) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "You are not assigned to this course");
+            }
+            return assignment;
+        }
+
+        private void ensureInstructor (User actor){
+            boolean instructor = actor.getRole() == RoleName.INSTRUCTOR || actor.getRole() == RoleName.ADMIN;
+            if (!instructor) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "Instructor role required");
+            }
+        }
+
+        private boolean isAdmin (User actor){
+            return actor.getRole() == RoleName.ADMIN;
+        }
+
+        private CourseResponse toCourseResponse (Course course){
+            Set<UUID> instructorIds = courseInstructorRepository.findByCourse(course).stream()
+                    .map(ci -> ci.getInstructorUser().getId())
+                    .collect(Collectors.toSet());
+
+            return new CourseResponse(
+                    course.getId(),
+                    course.getTitle(),
+                    course.getDescription(),
+                    course.getCoverImageUrl(),
+                    course.getIntroVideoUrl(),
+                    course.getStatus().name(),
+                    course.getPublishedAt(),
+                    course.getArchivedAt(),
+                    course.getCreatedByUser().getId(),
+                    instructorIds
+            );
+        }
+
+        private CourseModuleResponse toModuleResponse (CourseModule module, List < Lesson > lessons){
+            return new CourseModuleResponse(
+                    module.getId(),
+                    module.getTitle(),
+                    module.getPosition(),
+                    lessons.stream().map(this::toLessonResponse).toList()
+            );
+        }
+
+        private InstructorProgressResponse toInstructorProgressResponse (CourseEnrollment enrollment){
+            Course course = enrollment.getCourse();
+            User learner = enrollment.getUser();
+            List<Assignment> assignments = assignmentRepository.findByCourse(course);
+            List<AssignmentSubmission> submissions = assignments.isEmpty()
+                    ? List.of()
+                    : assignmentSubmissionRepository.findByAssignmentInAndLearnerUser(assignments, learner);
+            BigDecimal totalScore = submissions.stream()
+                    .map(AssignmentSubmission::getScore)
+                    .filter(score -> score != null)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            long scoredCount = submissions.stream()
+                    .map(AssignmentSubmission::getScore)
+                    .filter(score -> score != null)
+                    .count();
+            BigDecimal averageScore = scoredCount == 0
+                    ? BigDecimal.ZERO
+                    : totalScore.divide(BigDecimal.valueOf(scoredCount), 2, RoundingMode.HALF_UP);
+
+            return new InstructorProgressResponse(
+                    course.getId(),
+                    course.getTitle(),
+                    learner.getId(),
+                    learner.getEmail(),
+                    learner.getFirstName() + " " + learner.getLastName(),
+                    enrollment.getStatus().name(),
+                    enrollment.getProgressPct(),
+                    assignments.size(),
+                    submissions.size(),
+                    averageScore
+            );
+        }
+
+        private AssignmentResponse toAssignmentResponse (Assignment assignment){
+            return new AssignmentResponse(
+                    assignment.getId(),
+                    assignment.getCourse().getId(),
+                    assignment.getTitle(),
+                    assignment.getInstructions(),
+                    assignment.getDueAt(),
+                    assignment.getMaxScore(),
+                    assignment.getCreatedByUser().getId()
+            );
+        }
+
+        private LessonResponse toLessonResponse (Lesson lesson){
+            return new LessonResponse(
+                    lesson.getId(),
+                    lesson.getTitle(),
+                    lesson.getLessonType().name(),
+                    lesson.getPosition(),
+                    lesson.getContentUrl(),
+                    lesson.getContentText(),
+                    false // New lessons are not completed yet
+            );
         }
     }
-
-    private boolean isAdmin(User actor) {
-        return actor.getRole() == RoleName.ADMIN;
-    }
-
-    private CourseResponse toCourseResponse(Course course) {
-        Set<UUID> instructorIds = courseInstructorRepository.findByCourse(course).stream()
-                .map(ci -> ci.getInstructorUser().getId())
-                .collect(Collectors.toSet());
-
-        return new CourseResponse(
-                course.getId(),
-                course.getTitle(),
-                course.getDescription(),
-                course.getCoverImageUrl(),
-                course.getIntroVideoUrl(),
-                course.getStatus().name(),
-                course.getPublishedAt(),
-                course.getArchivedAt(),
-                course.getCreatedByUser().getId(),
-                instructorIds
-        );
-    }
-
-    private CourseModuleResponse toModuleResponse(CourseModule module, List<Lesson> lessons) {
-        return new CourseModuleResponse(
-                module.getId(),
-                module.getTitle(),
-                module.getPosition(),
-                lessons.stream().map(this::toLessonResponse).toList()
-        );
-    }
-
-    private LessonResponse toLessonResponse(Lesson lesson) {
-        return new LessonResponse(
-                lesson.getId(),
-                lesson.getTitle(),
-                lesson.getLessonType().name(),
-                lesson.getPosition(),
-                lesson.getContentUrl(),
-                lesson.getContentText(),
-                false // New lessons are not completed yet
-        );
-    }
-}
