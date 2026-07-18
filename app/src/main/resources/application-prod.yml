@@ -18,7 +18,11 @@ spring:
       time-to-live: 3600000
       cache-null-values: false
   jpa:
+    hibernate:
+      ddl-auto: validate
     defer-datasource-initialization: true
+  flyway:
+    enabled: true
   main:
     lazy-initialization: true
   data:
@@ -64,4 +68,3 @@ app:
 
   mail:
     from: ${EMAIL_FROM}
-
