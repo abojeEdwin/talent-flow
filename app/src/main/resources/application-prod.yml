@@ -68,3 +68,4 @@ app:
 
   mail:
     from: ${EMAIL_FROM}
+    resend-api-key: ${RESEND_API_KEY}
