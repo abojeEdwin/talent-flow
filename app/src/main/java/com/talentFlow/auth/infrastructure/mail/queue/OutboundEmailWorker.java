@@ -20,6 +20,8 @@ public class OutboundEmailWorker {
 
     private final OutboundEmailJobRepository outboundEmailJobRepository;
     private final JavaMailSender mailSender;
+    // self-reference so @Transactional is applied via Spring proxy when called internally
+    private final OutboundEmailWorker self;
 
     @Value("${app.mail.from}")
     private String fromAddress;
@@ -27,10 +29,16 @@ public class OutboundEmailWorker {
     @Scheduled(fixedDelay = 5000)
     public void processPendingEmails() {
         List<OutboundEmailJob> jobs = outboundEmailJobRepository
-                .findTop20ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(EmailJobStatus.PENDING, LocalDateTime.now());
+                .findTop20ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+                        EmailJobStatus.PENDING, LocalDateTime.now());
+
+        if (!jobs.isEmpty()) {
+            log.info("Processing {} pending email job(s)", jobs.size());
+        }
 
         for (OutboundEmailJob job : jobs) {
-            processSingleJob(job.getId());
+            // call via self-proxy so @Transactional is honoured
+            self.processSingleJob(job.getId());
         }
     }
 
@@ -38,7 +46,8 @@ public class OutboundEmailWorker {
     public void recoverStuckJobs() {
         LocalDateTime staleCutoff = LocalDateTime.now().minusMinutes(5);
         List<OutboundEmailJob> staleJobs = outboundEmailJobRepository
-                .findTop20ByStatusAndUpdatedAtLessThanEqualOrderByUpdatedAtAsc(EmailJobStatus.PROCESSING, staleCutoff);
+                .findTop20ByStatusAndUpdatedAtLessThanEqualOrderByUpdatedAtAsc(
+                        EmailJobStatus.PROCESSING, staleCutoff);
 
         for (OutboundEmailJob staleJob : staleJobs) {
             staleJob.setStatus(EmailJobStatus.PENDING);
@@ -65,38 +74,43 @@ public class OutboundEmailWorker {
                 job.setStatus(EmailJobStatus.COMPLETED);
                 job.setLastError("Email verification is disabled");
                 outboundEmailJobRepository.save(job);
-                log.info("Skipped legacy verification email job {} because verification is disabled", job.getId());
+                log.info("Skipped legacy verification email job {}", job.getId());
                 return;
             }
 
+            String from = resolveFromAddress();
+            String to   = job.getRecipientEmail();
+            String subj = resolveSubject(job);
+
+            log.info("Sending email job {} | type={} | from={} | to={} | subject={}",
+                    job.getId(), job.getType(), from, to, subj);
+
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(resolveFromAddress());
-            message.setTo(job.getRecipientEmail());
-            message.setSubject(resolveSubject(job));
+            message.setFrom(from);
+            message.setTo(to);
+            message.setSubject(subj);
             message.setText(resolveBody(job));
             mailSender.send(message);
 
-            log.info("Outbound email job {} sent via SMTP (Brevo)", job.getId());
+            log.info("Email job {} COMPLETED — sent to {}", job.getId(), to);
 
             job.setStatus(EmailJobStatus.COMPLETED);
             job.setLastError(null);
             outboundEmailJobRepository.save(job);
+
         } catch (Exception exception) {
-            log.warn(
-                    "Outbound email job {} failed on attempt {}: {}",
-                    job.getId(),
-                    job.getAttempts(),
-                    exception.getMessage()
-            );
+            // log the full error so it's visible in Render logs
+            log.error("Email job {} FAILED on attempt {}: {}",
+                    job.getId(), job.getAttempts(), exception.getMessage(), exception);
             handleFailure(job, buildErrorMessage(exception));
         }
     }
 
     private String resolveSubject(OutboundEmailJob job) {
         return switch (job.getType()) {
-            case VERIFICATION -> "Verify your Talent Flow account";
+            case VERIFICATION       -> "Verify your Talent Flow account";
             case INSTRUCTOR_WELCOME -> "Welcome to Talent Flow - Instructor Onboarding";
-            case PASSWORD_RESET -> "Talent Flow password reset";
+            case PASSWORD_RESET     -> "Talent Flow password reset";
         };
     }
 
@@ -146,10 +160,14 @@ public class OutboundEmailWorker {
         job.setLastError(errorMessage);
         if (job.getAttempts() >= job.getMaxAttempts()) {
             job.setStatus(EmailJobStatus.FAILED);
+            log.error("Email job {} permanently FAILED after {} attempts. Last error: {}",
+                    job.getId(), job.getAttempts(), errorMessage);
         } else {
             job.setStatus(EmailJobStatus.PENDING);
             long backoffSeconds = (long) Math.pow(2, Math.max(1, job.getAttempts()));
             job.setNextAttemptAt(LocalDateTime.now().plusSeconds(backoffSeconds));
+            log.warn("Email job {} will retry in {}s (attempt {}/{})",
+                    job.getId(), backoffSeconds, job.getAttempts(), job.getMaxAttempts());
         }
         outboundEmailJobRepository.save(job);
     }
