@@ -7,7 +7,8 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,8 +21,7 @@ public class OutboundEmailWorker {
 
     private final OutboundEmailJobRepository outboundEmailJobRepository;
     private final JavaMailSender mailSender;
-    // self-reference so @Transactional is applied via Spring proxy when called internally
-    private final OutboundEmailWorker self;
+    private final PlatformTransactionManager transactionManager;
 
     @Value("${app.mail.from}")
     private String fromAddress;
@@ -37,8 +37,7 @@ public class OutboundEmailWorker {
         }
 
         for (OutboundEmailJob job : jobs) {
-            // call via self-proxy so @Transactional is honoured
-            self.processSingleJob(job.getId());
+            processSingleJob(job.getId());
         }
     }
 
@@ -58,52 +57,55 @@ public class OutboundEmailWorker {
         }
     }
 
-    @Transactional
     public void processSingleJob(UUID jobId) {
-        OutboundEmailJob job = outboundEmailJobRepository.findById(jobId).orElse(null);
-        if (job == null || job.getStatus() != EmailJobStatus.PENDING) {
-            return;
-        }
-
-        try {
-            job.setStatus(EmailJobStatus.PROCESSING);
-            job.setAttempts(job.getAttempts() + 1);
-            outboundEmailJobRepository.save(job);
-
-            if (job.getType() == EmailJobType.VERIFICATION) {
-                job.setStatus(EmailJobStatus.COMPLETED);
-                job.setLastError("Email verification is disabled");
-                outboundEmailJobRepository.save(job);
-                log.info("Skipped legacy verification email job {}", job.getId());
-                return;
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        tx.execute(status -> {
+            OutboundEmailJob job = outboundEmailJobRepository.findById(jobId).orElse(null);
+            if (job == null || job.getStatus() != EmailJobStatus.PENDING) {
+                return null;
             }
 
-            String from = resolveFromAddress();
-            String to   = job.getRecipientEmail();
-            String subj = resolveSubject(job);
+            try {
+                job.setStatus(EmailJobStatus.PROCESSING);
+                job.setAttempts(job.getAttempts() + 1);
+                outboundEmailJobRepository.save(job);
 
-            log.info("Sending email job {} | type={} | from={} | to={} | subject={}",
-                    job.getId(), job.getType(), from, to, subj);
+                if (job.getType() == EmailJobType.VERIFICATION) {
+                    job.setStatus(EmailJobStatus.COMPLETED);
+                    job.setLastError("Email verification is disabled");
+                    outboundEmailJobRepository.save(job);
+                    log.info("Skipped legacy verification email job {}", job.getId());
+                    return null;
+                }
 
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(from);
-            message.setTo(to);
-            message.setSubject(subj);
-            message.setText(resolveBody(job));
-            mailSender.send(message);
+                String from = resolveFromAddress();
+                String to   = job.getRecipientEmail();
+                String subj = resolveSubject(job);
 
-            log.info("Email job {} COMPLETED — sent to {}", job.getId(), to);
+                log.info("Sending email job {} | type={} | from={} | to={} | subject={}",
+                        job.getId(), job.getType(), from, to, subj);
 
-            job.setStatus(EmailJobStatus.COMPLETED);
-            job.setLastError(null);
-            outboundEmailJobRepository.save(job);
+                SimpleMailMessage message = new SimpleMailMessage();
+                message.setFrom(from);
+                message.setTo(to);
+                message.setSubject(subj);
+                message.setText(resolveBody(job));
+                mailSender.send(message);
 
-        } catch (Exception exception) {
-            // log the full error so it's visible in Render logs
-            log.error("Email job {} FAILED on attempt {}: {}",
-                    job.getId(), job.getAttempts(), exception.getMessage(), exception);
-            handleFailure(job, buildErrorMessage(exception));
-        }
+                log.info("Email job {} COMPLETED — sent to {}", job.getId(), to);
+
+                job.setStatus(EmailJobStatus.COMPLETED);
+                job.setLastError(null);
+                outboundEmailJobRepository.save(job);
+
+            } catch (Exception exception) {
+                log.error("Email job {} FAILED on attempt {}: {}",
+                        job.getId(), job.getAttempts(), exception.getMessage(), exception);
+                handleFailure(job, buildErrorMessage(exception));
+            }
+
+            return null;
+        });
     }
 
     private String resolveSubject(OutboundEmailJob job) {
