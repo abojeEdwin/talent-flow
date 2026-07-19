@@ -29,9 +29,6 @@ import com.talentFlow.progress.web.dto.ProgressComputationResult;
 import com.talentFlow.progress.application.ProgressTrackingService;
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,16 +57,10 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     private final ProgressTrackingService progressTrackingService;
     private final MediaUrlService mediaUrlService;
     private final NotificationService notificationService;
-    private final CacheManager cacheManager;
 
-
-    private static final String CACHE_PUBLISHED_COURSES = "publishedCourses";
-    private static final String CACHE_MY_ENROLLMENTS = "myEnrollments";
-    private static final String CACHE_COURSE_DETAILS = "courseDetails";
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = CACHE_PUBLISHED_COURSES)
     public List<CourseResponse> browsePublishedCourses() {
         return courseRepository.findByStatus(CourseStatus.PUBLISHED).stream()
                 .map(this::toCourseResponse)
@@ -78,7 +69,6 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
 
     @Override
     @Transactional
-    @CacheEvict(value = {CACHE_PUBLISHED_COURSES, CACHE_MY_ENROLLMENTS, CACHE_COURSE_DETAILS}, allEntries = true)
     public CourseResponse enrollInCourse(UUID courseId, User learner) {
         if (learner.getRole() == RoleName.INTERN && !teamMemberRepository.existsByUser_Id(learner.getId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only interns allocated to a team can enroll in a course");
@@ -108,7 +98,6 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = CACHE_MY_ENROLLMENTS, key = "#learner.id")
     public List<CourseResponse> myEnrollments(User learner) {
         return courseEnrollmentRepository.findByUser(learner)
                 .stream()
@@ -121,7 +110,6 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = CACHE_COURSE_DETAILS, key = "#courseId + '_' + #learner.id")
     public CourseDetailResponse getCourseDetail(UUID courseId, User learner) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Course not found"));
@@ -180,8 +168,6 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
 
         ProgressComputationResult result = progressTrackingService.recalculateEnrollmentProgress(learner, course);
 
-        evictCourseDetailCache(course.getId(), learner.getId());
-
         return new LessonCompletionResponse(
                 lesson.getId(),
                 course.getId(),
@@ -189,15 +175,6 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
                 result.enrollmentStatus().name(),
                 result.certificateQueued()
         );
-    }
-
-    private void evictCourseDetailCache(UUID courseId, UUID learnerId) {
-        try {
-            cacheManager.getCache(CACHE_COURSE_DETAILS).evict(courseId + "_" + learnerId);
-            cacheManager.getCache(CACHE_MY_ENROLLMENTS).evict(learnerId);
-        } catch (Exception e) {
-            log.warn("Failed to evict cache after lesson completion", e);
-        }
     }
 
     @Override

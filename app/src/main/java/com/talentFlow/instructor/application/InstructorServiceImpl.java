@@ -40,8 +40,6 @@ import com.talentFlow.course.web.dto.LearnerProgressResponse;
 import com.talentFlow.course.web.dto.LessonResponse;
 import com.talentFlow.course.web.dto.ProvideFeedbackRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -77,14 +75,12 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "my-courses", key = "#actor.id")
     public CourseResponse createCourse(CreateCourseRequest request, User actor) {
         return createCourseWithMedia(request.title(), request.description(), null, null, actor);
     }
 
     @Override
     @Transactional
-    @CacheEvict(value = "my-courses", key = "#actor.id")
     public CourseResponse createCourseWithMedia(String title,
                                                 String description,
                                                 MultipartFile coverImage,
@@ -155,7 +151,6 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "course-modules", key = "#courseId")
     public CourseModuleResponse createCourseModule(UUID courseId, CreateCourseModuleRequest request, User actor) {
         Course course = getCourseAndCheckInstructor(courseId, actor);
 
@@ -191,7 +186,6 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "course-modules", key = "#module.course.id")
     public CourseModuleResponse updateCourseModule(UUID moduleId, CreateCourseModuleRequest request, User actor) {
         CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
         module.setTitle(request.title().trim());
@@ -204,7 +198,6 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "course-modules", key = "#module.course.id")
     public void deleteCourseModule(UUID moduleId, User actor) {
         CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
         if (lessonRepository.existsByModule(module)) {
@@ -215,7 +208,6 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "course-modules", key = "#module.course.id")
     public LessonResponse createLesson(UUID moduleId, CreateLessonRequest request, User actor) {
         CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
 
@@ -239,7 +231,6 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "course-modules", key = "#module.course.id")
     public LessonResponse createLessonWithFile(UUID moduleId,
                                                String title,
                                                LessonType lessonType,
@@ -291,7 +282,6 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "course-modules", key = "#lesson.module.course.id")
     public LessonResponse updateLesson(UUID lessonId, CreateLessonRequest request, User actor) {
         Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
         lesson.setTitle(request.title().trim());
@@ -306,7 +296,6 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "course-modules", key = "#lesson.module.course.id")
     public LessonResponse updateLessonWithFile(UUID lessonId,
                                                String title,
                                                LessonType lessonType,
@@ -336,7 +325,6 @@ public class InstructorServiceImpl implements InstructorService {
 
     @Override
         @Transactional
-        @CacheEvict(value = "course-modules", key = "#lesson.module.course.id")
         public void deleteLesson (UUID lessonId, User actor){
             Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
             lessonRepository.delete(lesson);
@@ -344,7 +332,6 @@ public class InstructorServiceImpl implements InstructorService {
 
         @Override
         @Transactional
-        @CacheEvict(value = "learner-progress", key = "#courseId")
         public AssignmentResponse createAssignment (UUID courseId, CreateAssignmentRequest request, User actor){
             Course course = getCourseAndCheckInstructor(courseId, actor);
             String trimmedTitle = request.title().trim();
@@ -416,7 +403,6 @@ public class InstructorServiceImpl implements InstructorService {
 
         @Override
         @Transactional(readOnly = true)
-        @Cacheable(value = "learner-progress", key = "#courseId")
         public List<LearnerProgressResponse> monitorLearnerProgress (UUID courseId, User actor){
             Course course = getCourseAndCheckInstructor(courseId, actor);
             List<Assignment> assignments = assignmentRepository.findByCourse(course);
@@ -456,7 +442,6 @@ public class InstructorServiceImpl implements InstructorService {
 
         @Override
         @Transactional
-        @CacheEvict(value = "learner-progress", key = "#assignment.course.id")
         public void deleteAssignment (UUID assignmentId, User actor){
             Assignment assignment = getAssignmentAndCheckInstructor(assignmentId, actor);
             if (assignmentSubmissionRepository.existsByAssignment(assignment)) {
@@ -467,7 +452,6 @@ public class InstructorServiceImpl implements InstructorService {
 
         @Override
         @Transactional
-        @CacheEvict(value = "learner-progress", key = "#submission.assignment.course.id")
         public AssignmentFeedbackResponse provideFeedback (UUID submissionId, ProvideFeedbackRequest request, User actor)
         {
             ensureInstructor(actor);

@@ -47,28 +47,31 @@ public class RedisCacheConfig implements CachingConfigurer {
         return new CacheErrorHandler() {
             @Override
             public void handleCacheGetError(RuntimeException exception, Cache cache, Object key) {
-                log.debug("Cache read failed for cache='{}' key='{}'. Evicting entry and continuing. Error: {}", 
+                log.warn("Cache GET failed for cache='{}' key='{}'. Falling through to source. Error: {}",
                     cache.getName(), key, exception.getMessage());
                 try {
                     cache.evict(key);
                 } catch (Exception e) {
-                    log.warn("Failed to evict cache entry for cache='{}' key='{}'", cache.getName(), key);
+                    log.warn("Failed to evict stale cache entry for cache='{}' key='{}'", cache.getName(), key);
                 }
             }
 
             @Override
             public void handleCachePutError(RuntimeException exception, Cache cache, Object key, Object value) {
-                throw exception;
+                log.warn("Cache PUT failed for cache='{}' key='{}'. Data was saved to DB; continuing. Error: {}",
+                    cache.getName(), key, exception.getMessage());
             }
 
             @Override
             public void handleCacheEvictError(RuntimeException exception, Cache cache, Object key) {
-                throw exception;
+                log.warn("Cache EVICT failed for cache='{}' key='{}'. DB operation already committed; continuing. Error: {}",
+                    cache.getName(), key, exception.getMessage());
             }
 
             @Override
             public void handleCacheClearError(RuntimeException exception, Cache cache) {
-                throw exception;
+                log.warn("Cache CLEAR failed for cache='{}'. DB operation already committed; continuing. Error: {}",
+                    cache.getName(), exception.getMessage());
             }
         };
     }

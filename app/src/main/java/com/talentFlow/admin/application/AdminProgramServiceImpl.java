@@ -22,9 +22,6 @@ import com.talentFlow.auth.infrastructure.repository.UserRepository;
 import com.talentFlow.common.exception.ApiException;
 import com.talentFlow.notification.application.NotificationService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -52,7 +49,6 @@ public class AdminProgramServiceImpl implements AdminProgramService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "cohorts", allEntries = true)
     public CohortResponse createCohort(CreateCohortRequest request, User actor) {
         if (cohortRepository.existsByNameIgnoreCase(request.name().trim())) {
             throw new ApiException(HttpStatus.CONFLICT, "Cohort name already exists");
@@ -85,17 +81,12 @@ public class AdminProgramServiceImpl implements AdminProgramService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "cohorts")
     public List<CohortResponse> listAllCohorts() {
         return cohortRepository.findAll().stream().map(this::toCohortResponse).toList();
     }
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "teams", allEntries = true),
-            @CacheEvict(value = "cohort_teams", key = "#request.cohortId()")
-    })
     public ProjectTeamResponse createProjectTeam(CreateProjectTeamRequest request, User actor) {
         Cohort cohort = cohortRepository.findById(request.cohortId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Cohort not found"));
@@ -115,17 +106,12 @@ public class AdminProgramServiceImpl implements AdminProgramService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "teams")
     public List<ProjectTeamResponse> listAllProjectTeams() {
         return projectTeamRepository.findAll().stream().map(this::toTeamResponse).toList();
     }
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "team_members", key = "#teamId"),
-            @CacheEvict(value = "allocated_interns", allEntries = true)
-    })
     public TeamMemberResponse allocateUserToTeam(UUID teamId, AllocateUserToTeamRequest request, User actor) {
         ProjectTeam team = projectTeamRepository.findById(teamId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Team not found"));
@@ -160,10 +146,6 @@ public class AdminProgramServiceImpl implements AdminProgramService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "team_members", key = "#teamId"),
-            @CacheEvict(value = "allocated_interns", allEntries = true)
-    })
     public AutoAllocateTeamMembersResponse autoAllocateUnallocatedInterns(UUID teamId, User actor) {
         ProjectTeam team = projectTeamRepository.findById(teamId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Team not found"));
@@ -217,7 +199,6 @@ public class AdminProgramServiceImpl implements AdminProgramService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "team_members", key = "#teamId")
     public List<TeamMemberResponse> listTeamMembers(UUID teamId) {
         projectTeamRepository.findById(teamId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Team not found"));
@@ -229,14 +210,12 @@ public class AdminProgramServiceImpl implements AdminProgramService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "cohort_teams", key = "#cohortId")
     public List<ProjectTeamResponse> listCohortTeams(UUID cohortId) {
         return projectTeamRepository.findByCohortId(cohortId).stream().map(this::toTeamResponse).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "allocated_interns")
     public List<TeamMemberResponse> listAllAllocatedInterns() {
         return teamMemberRepository.findAllWithUser().stream()
                 .map(this::toTeamMemberResponse)

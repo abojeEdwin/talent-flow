@@ -17,9 +17,6 @@ import com.talentFlow.notification.application.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -57,7 +54,6 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "admin_users", key = "'all_' + #query + '_' + #status", unless = "#result.isEmpty()")
     public Page<AdminUserSummaryResponse> listUsers(String query, UserStatus status, Pageable pageable) {
         Page<User> users;
         if (query != null && !query.isBlank()) {
@@ -72,7 +68,6 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "admin_instructors", key = "'instructors_' + #query + '_' + #status", unless = "#result.isEmpty()")
     public Page<AdminUserSummaryResponse> listInstructors(String query, UserStatus status, Pageable pageable) {
         Page<User> instructors;
         if (query != null && !query.isBlank()) {
@@ -97,7 +92,6 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "admin_unallocated_interns", key = "'unallocated_' + #query + '_' + #status", unless = "#result.isEmpty()")
     public Page<AdminUserSummaryResponse> listUnallocatedInterns(String query, UserStatus status, Pageable pageable) {
         Page<User> interns;
         if (query != null && !query.isBlank()) {
@@ -129,11 +123,6 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "admin_users", allEntries = true),
-            @CacheEvict(value = "admin_instructors", allEntries = true),
-            @CacheEvict(value = "admin_unallocated_interns", allEntries = true)
-    })
     public AdminUserDetailResponse updateUserStatus(UUID userId, UserStatus newStatus, User actor) {
         User user = getUserOrThrow(userId);
         UserStatus previousStatus = user.getStatus();
@@ -153,11 +142,6 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "admin_users", allEntries = true),
-            @CacheEvict(value = "admin_instructors", allEntries = true),
-            @CacheEvict(value = "admin_unallocated_interns", allEntries = true)
-    })
     public OnboardInstructorResponse onboardInstructor(CreateInstructorRequest request, User actor) {
         String email = request.email().trim().toLowerCase();
         if (userRepository.existsByEmailIgnoreCase(email)) {
@@ -194,11 +178,6 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "admin_users", allEntries = true),
-            @CacheEvict(value = "admin_instructors", allEntries = true),
-            @CacheEvict(value = "admin_unallocated_interns", allEntries = true)
-    })
     public AdminUserDetailResponse deactivateUser(UUID userId, User actor) {
         User user = getUserOrThrow(userId);
         UserStatus previousStatus = user.getStatus();
@@ -214,11 +193,6 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "admin_users", allEntries = true),
-            @CacheEvict(value = "admin_instructors", allEntries = true),
-            @CacheEvict(value = "admin_unallocated_interns", allEntries = true)
-    })
     public void triggerPasswordReset(UUID userId, User actor) {
         User user = getUserOrThrow(userId);
         String resetToken = authService.generatePasswordResetToken(user);
@@ -231,11 +205,6 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "admin_users", allEntries = true),
-            @CacheEvict(value = "admin_instructors", allEntries = true),
-            @CacheEvict(value = "admin_unallocated_interns", allEntries = true)
-    })
     public AdminUserDetailResponse updateUserRoles(UUID userId, RoleName role, User actor) {
         User user = getUserOrThrow(userId);
         RoleName previousRole = user.getRole();
