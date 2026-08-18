@@ -221,7 +221,7 @@ public class AdminCourseServiceImpl implements AdminCourseService {
     private User getMentorUser(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
-        boolean instructor = user.getRole() == RoleName.INSTRUCTOR || user.getRole() == RoleName.ADMIN;
+        boolean instructor = user.getRole() == RoleName.INSTRUCTOR || user.getRole() == RoleName.SUPER_ADMIN;
         if (!instructor) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "User is not an instructor");
         }

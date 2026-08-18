@@ -1,7 +1,8 @@
 package com.talentFlow.auth.domain.enums;
 
 public enum RoleName {
-    ADMIN,
+    ORG_ADMIN,
     INSTRUCTOR,
-    INTERN
+    LEARNER,
+    SUPER_ADMIN
 }

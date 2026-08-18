@@ -160,7 +160,7 @@ public class AdminProgramServiceImpl implements AdminProgramService {
 
         int slotsToFill = (int) (MAX_TEAM_SIZE - currentTeamSize);
         List<User> unallocatedInterns = userRepository.findUnallocatedInterns(
-                RoleName.INTERN,
+                RoleName.LEARNER,
                 PageRequest.of(0, slotsToFill)
         ).getContent();
 

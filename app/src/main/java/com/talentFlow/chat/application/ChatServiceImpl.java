@@ -100,11 +100,11 @@ public class ChatServiceImpl implements ChatService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Use /direct/{userId} endpoint for direct messages");
         }
 
-        if (type == COHORT_CHAT && creator.getRole() != RoleName.ADMIN) {
+        if (type == COHORT_CHAT && creator.getRole() != RoleName.SUPER_ADMIN) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only admins can create cohort chats");
         }
 
-        if (type == TEAM_CHAT && creator.getRole() != RoleName.ADMIN) {
+        if (type == TEAM_CHAT && creator.getRole() != RoleName.SUPER_ADMIN) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only admins can create team chats");
         }
 

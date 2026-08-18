@@ -595,14 +595,14 @@ public class InstructorServiceImpl implements InstructorService {
         }
 
         private void ensureInstructor (User actor){
-            boolean instructor = actor.getRole() == RoleName.INSTRUCTOR || actor.getRole() == RoleName.ADMIN;
+            boolean instructor = actor.getRole() == RoleName.INSTRUCTOR || actor.getRole() == RoleName.SUPER_ADMIN;
             if (!instructor) {
                 throw new ApiException(HttpStatus.FORBIDDEN, "Instructor role required");
             }
         }
 
         private boolean isAdmin (User actor){
-            return actor.getRole() == RoleName.ADMIN;
+            return actor.getRole() == RoleName.SUPER_ADMIN;
         }
 
         private CourseResponse toCourseResponse (Course course){

@@ -59,7 +59,7 @@ public class AdminUserSeeder implements CommandLineRunner {
                         created.setFirstName(firstName.trim());
                         created.setLastName(lastName.trim());
                         created.setPasswordHash(passwordEncoder.encode(adminPassword));
-                        created.setRole(RoleName.ADMIN);
+                        created.setRole(RoleName.SUPER_ADMIN);
                         created.setStatus(UserStatus.ACTIVE);
                         created.setFailedLoginAttempts(0);
                         created.setLockedUntil(null);
@@ -83,8 +83,8 @@ public class AdminUserSeeder implements CommandLineRunner {
                 user.setPasswordHash(passwordEncoder.encode(adminPassword));
                 changed = true;
             }
-            if (user.getRole() != RoleName.ADMIN) {
-                user.setRole(RoleName.ADMIN);
+            if (user.getRole() != RoleName.SUPER_ADMIN) {
+                user.setRole(RoleName.SUPER_ADMIN);
                 changed = true;
             }
             if (user.getFailedLoginAttempts() != 0) {

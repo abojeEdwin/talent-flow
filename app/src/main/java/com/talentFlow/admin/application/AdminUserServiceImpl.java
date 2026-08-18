@@ -98,18 +98,18 @@ public class AdminUserServiceImpl implements AdminUserService {
             String trimmedQuery = query.trim();
             if (status != null) {
                 interns = userRepository.searchUnallocatedInternsByStatusAndQuery(
-                        RoleName.INTERN,
+                        RoleName.LEARNER,
                         status,
                         trimmedQuery,
                         pageable
                 );
             } else {
-                interns = userRepository.searchUnallocatedInternsByQuery(RoleName.INTERN, trimmedQuery, pageable);
+                interns = userRepository.searchUnallocatedInternsByQuery(RoleName.LEARNER, trimmedQuery, pageable);
             }
         } else if (status != null) {
-            interns = userRepository.findUnallocatedInternsByStatus(RoleName.INTERN, status, pageable);
+            interns = userRepository.findUnallocatedInternsByStatus(RoleName.LEARNER, status, pageable);
         } else {
-            interns = userRepository.findUnallocatedInterns(RoleName.INTERN, pageable);
+            interns = userRepository.findUnallocatedInterns(RoleName.LEARNER, pageable);
         }
         return interns.map(this::toSummaryResponse);
     }

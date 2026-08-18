@@ -163,7 +163,7 @@ public class MediaUploadWorker {
     }
 
     private void notifyAdminEscalation(MediaUploadJob job) {
-        List<User> adminUsers = userRepository.findByRole(RoleName.ADMIN, Pageable.unpaged()).getContent();
+        List<User> adminUsers = userRepository.findByRole(RoleName.SUPER_ADMIN, Pageable.unpaged()).getContent();
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("jobId", job.getId());

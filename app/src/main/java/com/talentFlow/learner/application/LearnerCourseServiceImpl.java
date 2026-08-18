@@ -70,7 +70,7 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     @Override
     @Transactional
     public CourseResponse enrollInCourse(UUID courseId, User learner) {
-        if (learner.getRole() == RoleName.INTERN && !teamMemberRepository.existsByUser_Id(learner.getId())) {
+        if (learner.getRole() == RoleName.LEARNER && !teamMemberRepository.existsByUser_Id(learner.getId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only interns allocated to a team can enroll in a course");
         }
 
