@@ -16,12 +16,14 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.FilterDef;
 import org.hibernate.annotations.ParamDef;
+import com.talentFlow.tenant.listener.TenantEntityListener;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -34,6 +36,7 @@ import java.util.UUID;
 })
 @FilterDef(name = "tenantFilter", parameters = {@ParamDef(name = "tenantId", type = UUID.class)})
 @Filter(name = "tenantFilter", condition = "organization_id = :tenantId")
+@EntityListeners(TenantEntityListener.class)
 public class User extends BaseEntity implements TenantAware {
 
     @Id

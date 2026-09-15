@@ -4,7 +4,9 @@ import com.talentFlow.admin.application.AdminUserService;
 import com.talentFlow.admin.web.dto.AdminUserDetailResponse;
 import com.talentFlow.admin.web.dto.AdminUserSummaryResponse;
 import com.talentFlow.admin.web.dto.CreateInstructorRequest;
+import com.talentFlow.admin.web.dto.CreateLearnerRequest;
 import com.talentFlow.admin.web.dto.OnboardInstructorResponse;
+import com.talentFlow.admin.web.dto.OnboardLearnerResponse;
 import com.talentFlow.admin.web.dto.UpdateUserRolesRequest;
 import com.talentFlow.admin.web.dto.UpdateUserStatusRequest;
 import com.talentFlow.common.response.ApiMessageResponse;
@@ -34,7 +36,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/admin/users")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ORG_ADMIN','SUPER_ADMIN')")
 public class AdminUserController {
 
     private final AdminUserService adminUserService;
@@ -96,6 +98,14 @@ public class AdminUserController {
             Authentication authentication
     ) {
         return adminUserService.onboardInstructor(request, getActor(authentication));
+    }
+
+    @PostMapping("/learners")
+    public OnboardLearnerResponse onboardLearner(
+            @Valid @RequestBody CreateLearnerRequest request,
+            Authentication authentication
+    ) {
+        return adminUserService.onboardLearner(request, getActor(authentication));
     }
 
     @PatchMapping("/{userId}/deactivate")

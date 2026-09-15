@@ -3,7 +3,9 @@ package com.talentFlow.admin.application;
 import com.talentFlow.admin.web.dto.AdminUserDetailResponse;
 import com.talentFlow.admin.web.dto.AdminUserSummaryResponse;
 import com.talentFlow.admin.web.dto.CreateInstructorRequest;
+import com.talentFlow.admin.web.dto.CreateLearnerRequest;
 import com.talentFlow.admin.web.dto.OnboardInstructorResponse;
+import com.talentFlow.admin.web.dto.OnboardLearnerResponse;
 import com.talentFlow.auth.domain.User;
 import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.auth.domain.enums.UserStatus;
@@ -24,6 +26,8 @@ public interface AdminUserService {
     AdminUserDetailResponse updateUserStatus(UUID userId, UserStatus newStatus, User actor);
 
     OnboardInstructorResponse onboardInstructor(CreateInstructorRequest request, User actor);
+
+    OnboardLearnerResponse onboardLearner(CreateLearnerRequest request, User actor);
 
     AdminUserDetailResponse deactivateUser(UUID userId, User actor);
 

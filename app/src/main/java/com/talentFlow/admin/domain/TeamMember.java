@@ -1,9 +1,13 @@
 package com.talentFlow.admin.domain;
 
 import com.talentFlow.auth.domain.User;
+import com.talentFlow.organization.domain.Organization;
+import com.talentFlow.tenant.TenantAware;
+import com.talentFlow.tenant.listener.TenantEntityListener;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -13,6 +17,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
 
 import java.time.LocalDateTime;
 
@@ -20,10 +25,16 @@ import java.time.LocalDateTime;
 @Setter
 @Entity
 @Table(name = "team_members")
-public class TeamMember {
+@Filter(name = "tenantFilter", condition = "organization_id = :tenantId")
+@EntityListeners(TenantEntityListener.class)
+public class TeamMember implements TenantAware {
 
     @EmbeddedId
     private TeamMemberId id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @MapsId("teamId")

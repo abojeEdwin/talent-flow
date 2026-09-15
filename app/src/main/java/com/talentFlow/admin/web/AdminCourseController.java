@@ -31,7 +31,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/admin/courses")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ORG_ADMIN','SUPER_ADMIN')")
 public class AdminCourseController {
 
     private final AdminCourseService adminCourseService;

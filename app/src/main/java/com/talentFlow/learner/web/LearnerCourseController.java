@@ -26,7 +26,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping({"/api/v1/learner/courses", "/api/v1/courses"})
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('INTERN','INSTRUCTOR','ADMIN')")
+@PreAuthorize("hasAnyRole('LEARNER','INSTRUCTOR','ORG_ADMIN','SUPER_ADMIN')")
 public class LearnerCourseController {
 
     private final LearnerCourseService learnerCourseService;

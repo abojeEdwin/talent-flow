@@ -277,7 +277,7 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
         learner.setPasswordHash("hashedPassword");
         learner.setFirstName("Test");
         learner.setLastName("Learner");
-        learner.setRole(RoleName.INTERN);
+        learner.setRole(RoleName.LEARNER);
         learner.setStatus(UserStatus.ACTIVE);
         learner = userRepository.save(learner);
 

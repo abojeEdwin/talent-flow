@@ -33,7 +33,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('INTERN','INSTRUCTOR','ADMIN')")
+@PreAuthorize("hasAnyRole('LEARNER','INSTRUCTOR','ORG_ADMIN','SUPER_ADMIN')")
 @Tag(name = "Notifications", description = "Notification management endpoints")
 @SecurityRequirement(name = "Bearer JWT")
 public class NotificationController {

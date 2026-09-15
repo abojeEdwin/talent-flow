@@ -5,7 +5,9 @@ import com.talentFlow.admin.infrastructure.repository.AdminAuditLogRepository;
 import com.talentFlow.admin.web.dto.AdminUserDetailResponse;
 import com.talentFlow.admin.web.dto.AdminUserSummaryResponse;
 import com.talentFlow.admin.web.dto.CreateInstructorRequest;
+import com.talentFlow.admin.web.dto.CreateLearnerRequest;
 import com.talentFlow.admin.web.dto.OnboardInstructorResponse;
+import com.talentFlow.admin.web.dto.OnboardLearnerResponse;
 import com.talentFlow.auth.application.AuthService;
 import com.talentFlow.auth.domain.User;
 import com.talentFlow.auth.domain.enums.RoleName;
@@ -157,9 +159,15 @@ public class AdminUserServiceImpl implements AdminUserService {
         instructor.setPasswordHash(passwordEncoder.encode(temporaryPassword));
         instructor.setRole(RoleName.INSTRUCTOR);
         instructor.setStatus(UserStatus.ACTIVE);
+        instructor.setOrganization(actor.getOrganization());
         instructor.setFailedLoginAttempts(0);
 
-        User saved = userRepository.save(instructor);
+        User saved;
+        try {
+            saved = userRepository.saveAndFlush(instructor);
+        } catch (org.springframework.dao.DataIntegrityViolationException exception) {
+            throw new ApiException(HttpStatus.CONFLICT, "Email is already registered");
+        }
         authMailService.sendInstructorWelcomeEmail(
                 saved.getEmail(),
                 saved.getFirstName(),
@@ -173,6 +181,48 @@ public class AdminUserServiceImpl implements AdminUserService {
                 saved.getId(),
                 saved.getEmail(),
                 "Instructor onboarded successfully. Welcome email sent."
+        );
+    }
+
+    @Override
+    @Transactional
+    public OnboardLearnerResponse onboardLearner(CreateLearnerRequest request, User actor) {
+        String email = request.email().trim().toLowerCase();
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Email is already registered");
+        }
+
+        String temporaryPassword = generateTemporaryPassword();
+        log.info(temporaryPassword);
+        User learner = new User();
+        learner.setEmail(email);
+        learner.setFirstName(request.firstName().trim());
+        learner.setLastName(request.lastName().trim());
+        learner.setPasswordHash(passwordEncoder.encode(temporaryPassword));
+        learner.setRole(RoleName.LEARNER);
+        learner.setStatus(UserStatus.ACTIVE);
+        learner.setOrganization(actor.getOrganization());
+        learner.setFailedLoginAttempts(0);
+
+        User saved;
+        try {
+            saved = userRepository.saveAndFlush(learner);
+        } catch (org.springframework.dao.DataIntegrityViolationException exception) {
+            throw new ApiException(HttpStatus.CONFLICT, "Email is already registered");
+        }
+        authMailService.sendLearnerWelcomeEmail(
+                saved.getEmail(),
+                saved.getFirstName(),
+                temporaryPassword,
+                loginUrl
+        );
+        writeAudit(actor, "LEARNER_ONBOARDED", "USER", saved.getId(),
+                "Onboarded learner " + saved.getEmail());
+
+        return new OnboardLearnerResponse(
+                saved.getId(),
+                saved.getEmail(),
+                "Learner onboarded successfully. Welcome email sent."
         );
     }
 

@@ -100,11 +100,11 @@ public class ChatServiceImpl implements ChatService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Use /direct/{userId} endpoint for direct messages");
         }
 
-        if (type == COHORT_CHAT && creator.getRole() != RoleName.SUPER_ADMIN) {
+        if (type == COHORT_CHAT && !isAdmin(creator)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only admins can create cohort chats");
         }
 
-        if (type == TEAM_CHAT && creator.getRole() != RoleName.SUPER_ADMIN) {
+        if (type == TEAM_CHAT && !isAdmin(creator)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only admins can create team chats");
         }
 
@@ -364,6 +364,10 @@ public class ChatServiceImpl implements ChatService {
         return teamMemberRepository.findByTeam_Id(teamId).stream()
                 .map(TeamMember::getUser)
                 .collect(Collectors.toList());
+    }
+
+    private boolean isAdmin(User user) {
+        return user.getRole() == RoleName.ORG_ADMIN || user.getRole() == RoleName.SUPER_ADMIN;
     }
 
     private void ensureParticipant(UUID conversationId, UUID userId) {

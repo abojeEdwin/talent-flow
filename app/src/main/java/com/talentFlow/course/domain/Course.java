@@ -13,10 +13,12 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Filter;
+import com.talentFlow.tenant.listener.TenantEntityListener;
 
 import java.time.LocalDateTime;
 
@@ -27,6 +29,7 @@ import java.time.LocalDateTime;
         @Index(name = "idx_course_organization_id", columnList = "organization_id")
 })
 @Filter(name = "tenantFilter", condition = "organization_id = :tenantId")
+@EntityListeners(TenantEntityListener.class)
 public class Course extends BaseEntity implements TenantAware {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

@@ -30,7 +30,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/admin/programs")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ORG_ADMIN','SUPER_ADMIN')")
 public class AdminProgramController {
 
     private final AdminProgramService adminProgramService;

@@ -110,9 +110,10 @@ public class OutboundEmailWorker {
 
     private String resolveSubject(OutboundEmailJob job) {
         return switch (job.getType()) {
-            case VERIFICATION       -> "Verify your Talent Flow account";
+            case VERIFICATION      -> "Verify your Talent Flow account";
             case INSTRUCTOR_WELCOME -> "Welcome to Talent Flow - Instructor Onboarding";
-            case PASSWORD_RESET     -> "Talent Flow password reset";
+            case LEARNER_WELCOME   -> "Welcome to Talent Flow";
+            case PASSWORD_RESET    -> "Talent Flow password reset";
         };
     }
 
@@ -125,6 +126,11 @@ public class OutboundEmailWorker {
                     + "If you did not initiate this registration, please ignore this message.\n";
             case INSTRUCTOR_WELCOME -> "Hi " + job.getRecipientName() + ",\n\n"
                     + "You have been onboarded as an Instructor on Talent Flow.\n"
+                    + "Temporary password: " + nullSafe(job.getTemporaryPassword()) + "\n"
+                    + "Login URL: " + nullSafe(job.getLoginUrl()) + "\n\n"
+                    + "Please sign in and change your password immediately.\n";
+            case LEARNER_WELCOME -> "Hi " + job.getRecipientName() + ",\n\n"
+                    + "You have been onboarded to your organization on Talent Flow.\n"
                     + "Temporary password: " + nullSafe(job.getTemporaryPassword()) + "\n"
                     + "Login URL: " + nullSafe(job.getLoginUrl()) + "\n\n"
                     + "Please sign in and change your password immediately.\n";

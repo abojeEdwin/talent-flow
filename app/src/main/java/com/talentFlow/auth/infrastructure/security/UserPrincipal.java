@@ -15,6 +15,7 @@ import java.util.UUID;
 public class UserPrincipal implements UserDetails {
 
     private final UUID id;
+    private final UUID organizationId;
     private final String email;
     private final String passwordHash;
     private final boolean enabled;
@@ -23,6 +24,7 @@ public class UserPrincipal implements UserDetails {
 
     public UserPrincipal(
             UUID id,
+            UUID organizationId,
             String email,
             String passwordHash,
             boolean enabled,
@@ -30,6 +32,7 @@ public class UserPrincipal implements UserDetails {
             Collection<? extends GrantedAuthority> authorities
     ) {
         this.id = id;
+        this.organizationId = organizationId;
         this.email = email;
         this.passwordHash = passwordHash;
         this.enabled = enabled;
@@ -47,6 +50,7 @@ public class UserPrincipal implements UserDetails {
 
         return new UserPrincipal(
                 user.getId(),
+                user.getOrganization() == null ? null : user.getOrganization().getId(),
                 user.getEmail(),
                 user.getPasswordHash(),
                 enabled,
@@ -57,6 +61,10 @@ public class UserPrincipal implements UserDetails {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
     @Override

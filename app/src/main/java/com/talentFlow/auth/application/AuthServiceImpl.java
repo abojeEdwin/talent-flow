@@ -13,6 +13,8 @@ import com.talentFlow.auth.web.dto.RegisterRequest;
 import com.talentFlow.auth.web.dto.RegisterResponse;
 import com.talentFlow.auth.infrastructure.security.JwtService;
 import com.talentFlow.common.exception.ApiException;
+import com.talentFlow.organization.domain.Organization;
+import com.talentFlow.organization.infrastructure.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -35,6 +37,7 @@ import java.util.UUID;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final OrganizationRepository organizationRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
@@ -50,23 +53,38 @@ public class AuthServiceImpl implements AuthService {
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new ApiException(HttpStatus.CONFLICT, "Invalid signup credentials");
         }
+        if (organizationRepository.existsByNameIgnoreCase(request.organizationName().trim())) {
+            throw new ApiException(HttpStatus.CONFLICT, "An organization with this name already exists");
+        }
+
+        Organization organization = Organization.builder()
+                .name(request.organizationName().trim())
+                .description("Created for " + request.firstName().trim() + " " + request.lastName().trim())
+                .build();
+        Organization savedOrganization = organizationRepository.save(organization);
 
         User user = new User();
+        user.setOrganization(savedOrganization);
         user.setFirstName(request.firstName().trim());
         user.setLastName(request.lastName().trim());
         user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setRole(RoleName.LEARNER);
+        user.setRole(RoleName.ORG_ADMIN);
         user.setStatus(UserStatus.ACTIVE);
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
 
         User savedUser = userRepository.save(user);
+        String accessToken = jwtService.generateToken(savedUser.getEmail(), savedOrganization.getId());
 
         return new RegisterResponse(
+                savedOrganization.getId(),
                 savedUser.getId(),
                 savedUser.getEmail(),
-                "User registered successfully."
+                accessToken,
+                "Bearer",
+                jwtService.getExpirationSeconds(),
+                "Organization and admin account created successfully."
         );
     }
 
@@ -87,7 +105,10 @@ public class AuthServiceImpl implements AuthService {
             user.setLastLoginAt(LocalDateTime.now());
             user.setFailedLoginAttempts(0);
             User savedUser = userRepository.save(user);
-            String accessToken = jwtService.generateToken(savedUser.getEmail());
+            String accessToken = jwtService.generateToken(
+                    savedUser.getEmail(),
+                    savedUser.getOrganization() == null ? null : savedUser.getOrganization().getId()
+            );
 
             return new LoginResponse(
                     accessToken,
@@ -157,6 +178,7 @@ public class AuthServiceImpl implements AuthService {
     private AuthResponse toAuthResponse(User user) {
         return new AuthResponse(
                 user.getId(),
+                user.getOrganization() == null ? null : user.getOrganization().getId(),
                 user.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),

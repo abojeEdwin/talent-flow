@@ -23,6 +23,11 @@ public class AuthMailServiceImpl implements AuthMailService {
     }
 
     @Override
+    public void sendLearnerWelcomeEmail(String recipientEmail, String recipientName, String temporaryPassword, String loginUrl) {
+        enqueue(EmailJobType.LEARNER_WELCOME, recipientEmail, recipientName, null, temporaryPassword, loginUrl);
+    }
+
+    @Override
     public void sendPasswordResetEmail(String recipientEmail, String recipientName, String resetLink) {
         enqueue(EmailJobType.PASSWORD_RESET, recipientEmail, recipientName, resetLink, null, null);
     }

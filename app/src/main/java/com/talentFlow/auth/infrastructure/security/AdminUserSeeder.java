@@ -4,6 +4,8 @@ import com.talentFlow.auth.domain.User;
 import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.auth.domain.enums.UserStatus;
 import com.talentFlow.auth.infrastructure.repository.UserRepository;
+import com.talentFlow.organization.domain.Organization;
+import com.talentFlow.organization.infrastructure.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,7 +18,10 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AdminUserSeeder implements CommandLineRunner {
 
+    private static final String PLATFORM_ORG = "TalentFlow Platform";
+
     private final UserRepository userRepository;
+    private final OrganizationRepository organizationRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${app.seed.admin.enabled:${ADMIN_SEED_ENABLED:false}}")
@@ -52,6 +57,12 @@ public class AdminUserSeeder implements CommandLineRunner {
                 throw new IllegalStateException("Admin seeding is enabled, but app.seed.admin.email/password are missing");
             }
 
+            Organization platformOrganization = organizationRepository.findByNameIgnoreCase(PLATFORM_ORG)
+                    .orElseGet(() -> organizationRepository.save(Organization.builder()
+                            .name(PLATFORM_ORG)
+                            .description("Platform-level system organization for super admins")
+                            .build()));
+
             User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                     .orElseGet(() -> {
                         User created = new User();
@@ -61,12 +72,17 @@ public class AdminUserSeeder implements CommandLineRunner {
                         created.setPasswordHash(passwordEncoder.encode(adminPassword));
                         created.setRole(RoleName.SUPER_ADMIN);
                         created.setStatus(UserStatus.ACTIVE);
+                        created.setOrganization(platformOrganization);
                         created.setFailedLoginAttempts(0);
                         created.setLockedUntil(null);
                         return created;
                     });
 
             boolean changed = false;
+            if (user.getOrganization() == null) {
+                user.setOrganization(platformOrganization);
+                changed = true;
+            }
             if (user.getFirstName() == null || user.getFirstName().isBlank()) {
                 user.setFirstName(firstName.trim());
                 changed = true;

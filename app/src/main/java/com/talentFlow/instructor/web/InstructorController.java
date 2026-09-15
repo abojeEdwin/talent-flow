@@ -1,5 +1,8 @@
 package com.talentFlow.instructor.web;
 
+import com.talentFlow.admin.application.AdminUserService;
+import com.talentFlow.admin.web.dto.CreateLearnerRequest;
+import com.talentFlow.admin.web.dto.OnboardLearnerResponse;
 import com.talentFlow.auth.domain.User;
 import com.talentFlow.auth.infrastructure.repository.UserRepository;
 import com.talentFlow.common.exception.ApiException;
@@ -46,11 +49,20 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/instructor")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('INSTRUCTOR','ADMIN')")
+@PreAuthorize("hasAnyRole('INSTRUCTOR','ORG_ADMIN','SUPER_ADMIN')")
 public class InstructorController {
 
     private final InstructorService instructorService;
+    private final AdminUserService adminUserService;
     private final UserRepository userRepository;
+
+    @PostMapping("/learners")
+    public OnboardLearnerResponse onboardLearner(
+            @Valid @RequestBody CreateLearnerRequest request,
+            Authentication authentication
+    ) {
+        return adminUserService.onboardLearner(request, getActor(authentication));
+    }
 
     @PostMapping(value = "/courses", consumes = MediaType.APPLICATION_JSON_VALUE)
     public CourseResponse createCourse(@Valid @RequestBody CreateCourseRequest request, Authentication authentication) {
