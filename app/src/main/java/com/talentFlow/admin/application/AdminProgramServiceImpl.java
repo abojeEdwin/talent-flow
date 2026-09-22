@@ -4,7 +4,6 @@ import com.talentFlow.admin.domain.AdminAuditLog;
 import com.talentFlow.admin.domain.Cohort;
 import com.talentFlow.admin.domain.ProjectTeam;
 import com.talentFlow.admin.domain.TeamMember;
-import com.talentFlow.admin.domain.TeamMemberId;
 import com.talentFlow.admin.infrastructure.repository.AdminAuditLogRepository;
 import com.talentFlow.admin.infrastructure.repository.CohortRepository;
 import com.talentFlow.admin.infrastructure.repository.ProjectTeamRepository;
@@ -25,7 +24,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +46,6 @@ public class AdminProgramServiceImpl implements AdminProgramService {
 
 
     @Override
-    @Transactional
     public CohortResponse createCohort(CreateCohortRequest request, User actor) {
         if (cohortRepository.existsByNameIgnoreCase(request.name().trim())) {
             throw new ApiException(HttpStatus.CONFLICT, "Cohort name already exists");
@@ -80,17 +77,15 @@ public class AdminProgramServiceImpl implements AdminProgramService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<CohortResponse> listAllCohorts() {
         return cohortRepository.findAll().stream().map(this::toCohortResponse).toList();
     }
 
     @Override
-    @Transactional
     public ProjectTeamResponse createProjectTeam(CreateProjectTeamRequest request, User actor) {
         Cohort cohort = cohortRepository.findById(request.cohortId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Cohort not found"));
-        projectTeamRepository.findByCohortAndNameIgnoreCase(cohort, request.name().trim()).ifPresent(t -> {
+        projectTeamRepository.findByCohortIdAndNameIgnoreCase(cohort.getId(), request.name().trim()).ifPresent(t -> {
             throw new ApiException(HttpStatus.CONFLICT, "Team name already exists in this cohort");
         });
 
@@ -105,22 +100,20 @@ public class AdminProgramServiceImpl implements AdminProgramService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<ProjectTeamResponse> listAllProjectTeams() {
         return projectTeamRepository.findAll().stream().map(this::toTeamResponse).toList();
     }
 
     @Override
-    @Transactional
     public TeamMemberResponse allocateUserToTeam(UUID teamId, AllocateUserToTeamRequest request, User actor) {
         ProjectTeam team = projectTeamRepository.findById(teamId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Team not found"));
         User user = userRepository.findById(request.userId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
 
-        TeamMemberId id = new TeamMemberId(team.getId(), user.getId());
+        String id = TeamMember.buildId(team.getId(), user.getId());
         boolean alreadyMember = teamMemberRepository.existsById(id);
-        long currentTeamSize = teamMemberRepository.countByTeam_Id(teamId);
+        long currentTeamSize = teamMemberRepository.countByTeamId(teamId);
         if (!alreadyMember && currentTeamSize >= MAX_TEAM_SIZE) {
             throw new ApiException(HttpStatus.CONFLICT, "Team has reached max capacity of " + MAX_TEAM_SIZE);
         }
@@ -145,12 +138,11 @@ public class AdminProgramServiceImpl implements AdminProgramService {
     }
 
     @Override
-    @Transactional
     public AutoAllocateTeamMembersResponse autoAllocateUnallocatedInterns(UUID teamId, User actor) {
         ProjectTeam team = projectTeamRepository.findById(teamId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Team not found"));
 
-        long currentTeamSize = teamMemberRepository.countByTeam_Id(teamId);
+        long currentTeamSize = teamMemberRepository.countByTeamId(teamId);
         if (currentTeamSize > 0) {
             throw new ApiException(HttpStatus.CONFLICT, "Team already has members; auto-allocation only supports empty teams");
         }
@@ -171,7 +163,7 @@ public class AdminProgramServiceImpl implements AdminProgramService {
         List<TeamMemberResponse> allocatedMembers = new ArrayList<>();
         for (User intern : unallocatedInterns) {
             TeamMember member = new TeamMember();
-            member.setId(new TeamMemberId(team.getId(), intern.getId()));
+            member.setId(TeamMember.buildId(team.getId(), intern.getId()));
             member.setTeam(team);
             member.setUser(intern);
             member.setTeamRole("INTERN");
@@ -198,26 +190,23 @@ public class AdminProgramServiceImpl implements AdminProgramService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<TeamMemberResponse> listTeamMembers(UUID teamId) {
         projectTeamRepository.findById(teamId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Team not found"));
 
-        return teamMemberRepository.findByTeam_IdOrderByCreatedAtAsc(teamId).stream()
+        return teamMemberRepository.findByTeamIdOrderByCreatedAtAsc(teamId).stream()
                 .map(this::toTeamMemberResponse)
                 .toList();
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<ProjectTeamResponse> listCohortTeams(UUID cohortId) {
         return projectTeamRepository.findByCohortId(cohortId).stream().map(this::toTeamResponse).toList();
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<TeamMemberResponse> listAllAllocatedInterns() {
-        return teamMemberRepository.findAllWithUser().stream()
+        return teamMemberRepository.findByOrderByCreatedAtAsc().stream()
                 .map(this::toTeamMemberResponse)
                 .toList();
     }

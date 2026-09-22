@@ -1,24 +1,19 @@
 package com.talentFlow.admin.infrastructure.repository;
 
 import com.talentFlow.admin.domain.TeamMember;
-import com.talentFlow.admin.domain.TeamMemberId;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.List;
 import java.util.UUID;
 
-public interface TeamMemberRepository extends JpaRepository<TeamMember, TeamMemberId> {
-    List<TeamMember> findByTeam_Id(UUID teamId);
+public interface TeamMemberRepository extends MongoRepository<TeamMember, String>, TeamMemberRepositoryCustom {
+    List<TeamMember> findByOrderByCreatedAtAsc();
 
-    List<TeamMember> findByTeam_IdOrderByCreatedAtAsc(UUID teamId);
+    boolean existsByTeamIdAndUserId(String teamId, String userId);
 
-    List<TeamMember> findByTeam_Cohort_Id(UUID cohortId);
+    boolean existsByUserId(UUID userId);
 
-    long countByTeam_Id(UUID teamId);
+    List<TeamMember> findByTeamIdOrderByCreatedAtAsc(UUID teamId);
 
-    boolean existsByUser_Id(UUID userId);
-
-    @Query("SELECT tm FROM TeamMember tm JOIN FETCH tm.user ORDER BY tm.createdAt ASC")
-    List<TeamMember> findAllWithUser();
+    long countByTeamId(UUID teamId);
 }

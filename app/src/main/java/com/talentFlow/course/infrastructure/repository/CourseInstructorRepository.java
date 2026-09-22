@@ -3,13 +3,13 @@ package com.talentFlow.course.infrastructure.repository;
 import com.talentFlow.auth.domain.User;
 import com.talentFlow.course.domain.Course;
 import com.talentFlow.course.domain.CourseInstructor;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface CourseInstructorRepository extends JpaRepository<CourseInstructor, UUID> {
+public interface CourseInstructorRepository extends MongoRepository<CourseInstructor, UUID> {
     List<CourseInstructor> findByCourse(Course course);
 
     List<CourseInstructor> findByInstructorUser(User user);

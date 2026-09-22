@@ -15,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,7 +37,6 @@ public class NotificationReadServiceImpl implements NotificationReadService {
     }
 
     @Override
-    @Transactional
     public NotificationResponse markAsRead(UUID notificationId, Authentication authentication) {
         User actor = getActor(authentication);
         Notification notification = notificationRepository.findByIdAndUser(notificationId, actor)
@@ -54,7 +52,6 @@ public class NotificationReadServiceImpl implements NotificationReadService {
     }
 
     @Override
-    @Transactional
     public Map<String, Object> markAllAsRead(Authentication authentication) {
         User actor = getActor(authentication);
         LocalDateTime now = LocalDateTime.now();

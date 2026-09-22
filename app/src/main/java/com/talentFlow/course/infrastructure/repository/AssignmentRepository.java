@@ -4,13 +4,13 @@ import com.talentFlow.course.domain.Assignment;
 import com.talentFlow.course.domain.Course;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface AssignmentRepository extends JpaRepository<Assignment, UUID> {
+public interface AssignmentRepository extends MongoRepository<Assignment, UUID> {
     List<Assignment> findByCourse(Course course);
 
     Page<Assignment> findByCourseIn(List<Course> courses, Pageable pageable);

@@ -24,7 +24,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.util.HashMap;
@@ -55,7 +54,6 @@ public class AdminUserServiceImpl implements AdminUserService {
     private String loginUrl;
 
     @Override
-    @Transactional(readOnly = true)
     public Page<AdminUserSummaryResponse> listUsers(String query, UserStatus status, Pageable pageable) {
         Page<User> users;
         if (query != null && !query.isBlank()) {
@@ -69,7 +67,6 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<AdminUserSummaryResponse> listInstructors(String query, UserStatus status, Pageable pageable) {
         Page<User> instructors;
         if (query != null && !query.isBlank()) {
@@ -93,7 +90,6 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<AdminUserSummaryResponse> listUnallocatedInterns(String query, UserStatus status, Pageable pageable) {
         Page<User> interns;
         if (query != null && !query.isBlank()) {
@@ -117,14 +113,12 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public AdminUserDetailResponse getUser(UUID userId) {
         User user = getUserOrThrow(userId);
         return toDetailResponse(user);
     }
 
     @Override
-    @Transactional
     public AdminUserDetailResponse updateUserStatus(UUID userId, UserStatus newStatus, User actor) {
         User user = getUserOrThrow(userId);
         UserStatus previousStatus = user.getStatus();
@@ -143,7 +137,6 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
-    @Transactional
     public OnboardInstructorResponse onboardInstructor(CreateInstructorRequest request, User actor) {
         String email = request.email().trim().toLowerCase();
         if (userRepository.existsByEmailIgnoreCase(email)) {
@@ -164,8 +157,8 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         User saved;
         try {
-            saved = userRepository.saveAndFlush(instructor);
-        } catch (org.springframework.dao.DataIntegrityViolationException exception) {
+            saved = userRepository.save(instructor);
+        } catch (org.springframework.dao.DuplicateKeyException exception) {
             throw new ApiException(HttpStatus.CONFLICT, "Email is already registered");
         }
         authMailService.sendInstructorWelcomeEmail(
@@ -185,7 +178,6 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
-    @Transactional
     public OnboardLearnerResponse onboardLearner(CreateLearnerRequest request, User actor) {
         String email = request.email().trim().toLowerCase();
         if (userRepository.existsByEmailIgnoreCase(email)) {
@@ -206,8 +198,8 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         User saved;
         try {
-            saved = userRepository.saveAndFlush(learner);
-        } catch (org.springframework.dao.DataIntegrityViolationException exception) {
+            saved = userRepository.save(learner);
+        } catch (org.springframework.dao.DuplicateKeyException exception) {
             throw new ApiException(HttpStatus.CONFLICT, "Email is already registered");
         }
         authMailService.sendLearnerWelcomeEmail(
@@ -227,7 +219,6 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
-    @Transactional
     public AdminUserDetailResponse deactivateUser(UUID userId, User actor) {
         User user = getUserOrThrow(userId);
         UserStatus previousStatus = user.getStatus();
@@ -242,7 +233,6 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
-    @Transactional
     public void triggerPasswordReset(UUID userId, User actor) {
         User user = getUserOrThrow(userId);
         String resetToken = authService.generatePasswordResetToken(user);
@@ -254,7 +244,6 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
-    @Transactional
     public AdminUserDetailResponse updateUserRoles(UUID userId, RoleName role, User actor) {
         User user = getUserOrThrow(userId);
         RoleName previousRole = user.getRole();

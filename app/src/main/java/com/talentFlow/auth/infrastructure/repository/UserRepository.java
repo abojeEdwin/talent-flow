@@ -5,14 +5,14 @@ import com.talentFlow.auth.domain.enums.RoleName;
 import com.talentFlow.auth.domain.enums.UserStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 
 import java.util.Optional;
 import java.util.UUID;
 
-public interface UserRepository extends JpaRepository<User, UUID> {
+public interface UserRepository extends MongoRepository<User, UUID>, UserRepositoryCustom {
+
     boolean existsByEmailIgnoreCase(String email);
 
     Optional<User> findByEmailIgnoreCase(String email);
@@ -24,107 +24,38 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Page<User> findByRoleAndStatus(RoleName role, UserStatus status, Pageable pageable);
 
     @Query("""
-            SELECT u FROM User u
-            WHERE lower(u.email) LIKE lower(concat('%', :query, '%'))
-               OR lower(u.firstName) LIKE lower(concat('%', :query, '%'))
-               OR lower(u.lastName) LIKE lower(concat('%', :query, '%'))
+            { $or: [
+              { email: { $regex: ?0, $options: 'i' } },
+              { firstName: { $regex: ?0, $options: 'i' } },
+              { lastName: { $regex: ?0, $options: 'i' } }
+            ] }
             """)
-    Page<User> searchByQuery(@Param("query") String query, Pageable pageable);
+    Page<User> searchByQuery(String query, Pageable pageable);
 
     @Query("""
-            SELECT u FROM User u
-            WHERE u.role = :role
-              AND NOT EXISTS (
-                    SELECT tm FROM TeamMember tm
-                    WHERE tm.user = u
-              )
+            { role: ?0, $or: [
+              { email: { $regex: ?1, $options: 'i' } },
+              { firstName: { $regex: ?1, $options: 'i' } },
+              { lastName: { $regex: ?1, $options: 'i' } }
+            ] }
             """)
-    Page<User> findUnallocatedInterns(@Param("role") RoleName role, Pageable pageable);
+    Page<User> searchByRoleAndQuery(RoleName role, String query, Pageable pageable);
 
     @Query("""
-            SELECT u FROM User u
-            WHERE u.role = :role
-              AND u.status = :status
-              AND NOT EXISTS (
-                    SELECT tm FROM TeamMember tm
-                    WHERE tm.user = u
-              )
+            { role: ?0, status: ?1, $or: [
+              { email: { $regex: ?2, $options: 'i' } },
+              { firstName: { $regex: ?2, $options: 'i' } },
+              { lastName: { $regex: ?2, $options: 'i' } }
+            ] }
             """)
-    Page<User> findUnallocatedInternsByStatus(@Param("role") RoleName role,
-                                              @Param("status") UserStatus status,
-                                              Pageable pageable);
+    Page<User> searchByRoleAndStatusAndQuery(RoleName role, UserStatus status, String query, Pageable pageable);
 
     @Query("""
-            SELECT u FROM User u
-            WHERE u.role = :role
-              AND NOT EXISTS (
-                    SELECT tm FROM TeamMember tm
-                    WHERE tm.user = u
-              )
-              AND (
-                    lower(u.email) LIKE lower(concat('%', :query, '%'))
-                 OR lower(u.firstName) LIKE lower(concat('%', :query, '%'))
-                 OR lower(u.lastName) LIKE lower(concat('%', :query, '%'))
-              )
+            { status: 'ACTIVE', $or: [
+              { email: { $regex: ?0, $options: 'i' } },
+              { firstName: { $regex: ?0, $options: 'i' } },
+              { lastName: { $regex: ?0, $options: 'i' } }
+            ] }
             """)
-    Page<User> searchUnallocatedInternsByQuery(@Param("role") RoleName role,
-                                               @Param("query") String query,
-                                               Pageable pageable);
-
-    @Query("""
-            SELECT u FROM User u
-            WHERE u.role = :role
-              AND (
-                    lower(u.email) LIKE lower(concat('%', :query, '%'))
-                 OR lower(u.firstName) LIKE lower(concat('%', :query, '%'))
-                 OR lower(u.lastName) LIKE lower(concat('%', :query, '%'))
-              )
-            """)
-    Page<User> searchByRoleAndQuery(@Param("role") RoleName role, @Param("query") String query, Pageable pageable);
-
-    @Query("""
-            SELECT u FROM User u
-            WHERE u.role = :role
-              AND u.status = :status
-              AND NOT EXISTS (
-                    SELECT tm FROM TeamMember tm
-                    WHERE tm.user = u
-              )
-              AND (
-                    lower(u.email) LIKE lower(concat('%', :query, '%'))
-                 OR lower(u.firstName) LIKE lower(concat('%', :query, '%'))
-                 OR lower(u.lastName) LIKE lower(concat('%', :query, '%'))
-              )
-            """)
-    Page<User> searchUnallocatedInternsByStatusAndQuery(@Param("role") RoleName role,
-                                                        @Param("status") UserStatus status,
-                                                        @Param("query") String query,
-                                                        Pageable pageable);
-
-@Query("""
-            SELECT u FROM User u
-            WHERE u.role = :role
-            AND u.status = :status
-            AND (
-                    lower(u.email) LIKE lower(concat('%', :query, '%'))
-                 OR lower(u.firstName) LIKE lower(concat('%', :query, '%'))
-                 OR lower(u.lastName) LIKE lower(concat('%', :query, '%'))
-            )
-            """)
-    Page<User> searchByRoleAndStatusAndQuery(@Param("role") RoleName role,
-                                             @Param("status") UserStatus status,
-                                             @Param("query") String query,
-                                             Pageable pageable);
-
-    @Query("""
-            SELECT u FROM User u
-            WHERE u.status = 'ACTIVE'
-            AND (
-                    lower(u.email) LIKE lower(concat('%', :query, '%'))
-                 OR lower(u.firstName) LIKE lower(concat('%', :query, '%'))
-                 OR lower(u.lastName) LIKE lower(concat('%', :query, '%'))
-            )
-            ORDER BY u.firstName, u.lastName
-            """)
-    Page<User> searchActiveUsersByQuery(@Param("query") String query, Pageable pageable);
+    Page<User> searchActiveUsersByQuery(String query, Pageable pageable);
 }

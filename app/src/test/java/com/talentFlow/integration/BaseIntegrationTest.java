@@ -3,27 +3,20 @@ package com.talentFlow.integration;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.containers.MongoDBContainer;
 
 @ActiveProfiles("test")
 public abstract class BaseIntegrationTest {
 
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("talent_flow_test")
-            .withUsername("testuser")
-            .withPassword("testpass");
+    static final MongoDBContainer MONGODB = new MongoDBContainer("mongo:7.0");
 
     static {
-        POSTGRES.start();
+        MONGODB.start();
     }
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("spring.flyway.enabled", () -> true);
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
+        registry.add("spring.data.mongodb.uri", MONGODB::getConnectionString);
         registry.add("EMAIL_USERNAME", () -> "dummy");
         registry.add("EMAIL_PASSWORD", () -> "dummy");
         registry.add("EMAIL_FROM", () -> "no-reply@test.local");

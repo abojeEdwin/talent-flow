@@ -1,8 +1,7 @@
 spring:
-  datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
   mail:
     host: ${SMTP_HOST:smtp-relay.brevo.com}
     port: ${SMTP_PORT:2525}
@@ -24,12 +23,6 @@ spring:
     s3-bucket-secret-key: ${S3_BUCKET_SECRET_KEY:}
     s3-bucket-region: ${S3_BUCKET_REGION:us-east-1}
     s3-bucket-name: ${S3_BUCKET_NAME:}
-  jpa:
-    hibernate:
-      ddl-auto: validate
-  flyway:
-    enabled: true
-    baseline-on-migrate: true
 
 server:
   port: ${PORT:8080}

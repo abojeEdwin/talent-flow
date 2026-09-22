@@ -45,7 +45,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
@@ -74,13 +73,11 @@ public class InstructorServiceImpl implements InstructorService {
     private final NotificationService notificationService;
 
     @Override
-    @Transactional
     public CourseResponse createCourse(CreateCourseRequest request, User actor) {
         return createCourseWithMedia(request.title(), request.description(), null, null, actor);
     }
 
     @Override
-    @Transactional
     public CourseResponse createCourseWithMedia(String title,
                                                 String description,
                                                 MultipartFile coverImage,
@@ -133,7 +130,6 @@ public class InstructorServiceImpl implements InstructorService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<CourseResponse> listMyCourses(User actor, CourseStatus status, Pageable pageable) {
         ensureInstructor(actor);
         List<Course> allCourses = courseInstructorRepository.findByInstructorUser(actor).stream()
@@ -150,7 +146,6 @@ public class InstructorServiceImpl implements InstructorService {
     }
 
     @Override
-    @Transactional
     public CourseModuleResponse createCourseModule(UUID courseId, CreateCourseModuleRequest request, User actor) {
         Course course = getCourseAndCheckInstructor(courseId, actor);
 
@@ -170,11 +165,10 @@ public class InstructorServiceImpl implements InstructorService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<CourseModuleResponse> listCourseModules(UUID courseId, User actor, Pageable pageable) {
         Course course = getCourseAndCheckInstructor(courseId, actor);
         Page<CourseModule> modulePage = courseModuleRepository.findByCourseOrderByPositionAsc(course, pageable);
-        List<Lesson> lessons = lessonRepository.findByModuleInOrderByModule_PositionAscPositionAsc(modulePage.getContent());
+        List<Lesson> lessons = lessonRepository.findByModuleInOrderByPositionAsc(modulePage.getContent());
 
         var lessonsByModule = lessons.stream().collect(Collectors.groupingBy(l -> l.getModule().getId()));
 
@@ -185,7 +179,6 @@ public class InstructorServiceImpl implements InstructorService {
     }
 
     @Override
-    @Transactional
     public CourseModuleResponse updateCourseModule(UUID moduleId, CreateCourseModuleRequest request, User actor) {
         CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
         module.setTitle(request.title().trim());
@@ -197,7 +190,6 @@ public class InstructorServiceImpl implements InstructorService {
     }
 
     @Override
-    @Transactional
     public void deleteCourseModule(UUID moduleId, User actor) {
         CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
         if (lessonRepository.existsByModule(module)) {
@@ -207,7 +199,6 @@ public class InstructorServiceImpl implements InstructorService {
     }
 
     @Override
-    @Transactional
     public LessonResponse createLesson(UUID moduleId, CreateLessonRequest request, User actor) {
         CourseModule module = getModuleAndCheckInstructor(moduleId, actor);
 
@@ -230,7 +221,6 @@ public class InstructorServiceImpl implements InstructorService {
     }
 
     @Override
-    @Transactional
     public LessonResponse createLessonWithFile(UUID moduleId,
                                                String title,
                                                LessonType lessonType,
@@ -274,14 +264,12 @@ public class InstructorServiceImpl implements InstructorService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public LessonResponse getLesson(UUID lessonId, User actor) {
         Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
         return toLessonResponse(lesson);
     }
 
     @Override
-    @Transactional
     public LessonResponse updateLesson(UUID lessonId, CreateLessonRequest request, User actor) {
         Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
         lesson.setTitle(request.title().trim());
@@ -295,7 +283,6 @@ public class InstructorServiceImpl implements InstructorService {
     }
 
     @Override
-    @Transactional
     public LessonResponse updateLessonWithFile(UUID lessonId,
                                                String title,
                                                LessonType lessonType,
@@ -324,14 +311,12 @@ public class InstructorServiceImpl implements InstructorService {
     }
 
     @Override
-        @Transactional
         public void deleteLesson (UUID lessonId, User actor){
             Lesson lesson = getLessonAndCheckInstructor(lessonId, actor);
             lessonRepository.delete(lesson);
         }
 
         @Override
-        @Transactional
         public AssignmentResponse createAssignment (UUID courseId, CreateAssignmentRequest request, User actor){
             Course course = getCourseAndCheckInstructor(courseId, actor);
             String trimmedTitle = request.title().trim();
@@ -359,7 +344,6 @@ public class InstructorServiceImpl implements InstructorService {
         }
 
         @Override
-        @Transactional(readOnly = true)
         public Page<AssignmentResponse> listAssignments (User actor, Pageable pageable){
             ensureInstructor(actor);
             Page<Assignment> assignmentPage;
@@ -379,7 +363,6 @@ public class InstructorServiceImpl implements InstructorService {
         }
 
         @Override
-        @Transactional(readOnly = true)
         public Page<InstructorProgressResponse> listProgress (User actor, Pageable pageable){
             ensureInstructor(actor);
             List<Course> courses = isAdmin(actor)
@@ -402,7 +385,6 @@ public class InstructorServiceImpl implements InstructorService {
         }
 
         @Override
-        @Transactional(readOnly = true)
         public List<LearnerProgressResponse> monitorLearnerProgress (UUID courseId, User actor){
             Course course = getCourseAndCheckInstructor(courseId, actor);
             List<Assignment> assignments = assignmentRepository.findByCourse(course);
@@ -434,14 +416,12 @@ public class InstructorServiceImpl implements InstructorService {
         }
 
         @Override
-        @Transactional(readOnly = true)
         public AssignmentResponse getAssignment (UUID assignmentId, User actor){
             Assignment assignment = getAssignmentAndCheckInstructor(assignmentId, actor);
             return toAssignmentResponse(assignment);
         }
 
         @Override
-        @Transactional
         public void deleteAssignment (UUID assignmentId, User actor){
             Assignment assignment = getAssignmentAndCheckInstructor(assignmentId, actor);
             if (assignmentSubmissionRepository.existsByAssignment(assignment)) {
@@ -451,7 +431,6 @@ public class InstructorServiceImpl implements InstructorService {
         }
 
         @Override
-        @Transactional
         public AssignmentFeedbackResponse provideFeedback (UUID submissionId, ProvideFeedbackRequest request, User actor)
         {
             ensureInstructor(actor);

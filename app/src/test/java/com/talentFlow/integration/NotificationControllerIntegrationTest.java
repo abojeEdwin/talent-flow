@@ -8,6 +8,8 @@ import com.talentFlow.auth.infrastructure.repository.UserRepository;
 import com.talentFlow.auth.infrastructure.security.JwtService;
 import com.talentFlow.notification.domain.Notification;
 import com.talentFlow.notification.infrastructure.repository.NotificationRepository;
+import com.talentFlow.organization.domain.Organization;
+import com.talentFlow.organization.infrastructure.repository.OrganizationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,12 +41,16 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
     private NotificationRepository notificationRepository;
 
     @Autowired
+    private OrganizationRepository organizationRepository;
+
+    @Autowired
     private JwtService jwtService;
 
     @Autowired
     private ObjectMapper objectMapper;
 
     private User testUser;
+    private Organization testOrganization;
     private String authToken;
     private String baseUrl = "/api/v1/notifications";
 
@@ -53,7 +59,13 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
         notificationRepository.deleteAll();
         userRepository.deleteAll();
 
+        testOrganization = new Organization();
+        testOrganization.setName("Test Organization " + UUID.randomUUID());
+        testOrganization.setDescription("Integration test organization");
+        testOrganization = organizationRepository.save(testOrganization);
+
         testUser = new User();
+        testUser.setOrganization(testOrganization);
         testUser.setEmail("instructor@test.local");
         testUser.setPasswordHash("hashedPassword");
         testUser.setFirstName("Test");
@@ -66,17 +78,23 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
         authToken = jwtService.generateToken(testUser.getEmail());
     }
 
+    private Notification newNotification(User user, String title, boolean read) {
+        Notification notif = new Notification();
+        notif.setOrganization(testOrganization);
+        notif.setUser(user);
+        notif.setType("TEST_TYPE");
+        notif.setTitle(title);
+        notif.setMessage("Test message");
+        notif.setRead(read);
+        return notif;
+    }
+
     @Test
     @DisplayName("GET / should list notifications with pagination")
     void testListNotifications() throws Exception {
-        // Create test notifications
         for (int i = 0; i < 5; i++) {
-            Notification notif = new Notification();
-            notif.setUser(testUser);
-            notif.setType("TEST_TYPE");
-            notif.setTitle("Test Notification " + i);
+            Notification notif = newNotification(testUser, "Test Notification " + i, i % 2 == 0);
             notif.setMessage("Test message " + i);
-            notif.setRead(i % 2 == 0);
             notif.setCreatedAt(LocalDateTime.now().minusHours(i));
             notificationRepository.save(notif);
         }
@@ -93,13 +111,7 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("PATCH /{notificationId}/read should mark single notification as read")
     void testMarkSingleNotificationAsRead() throws Exception {
-        Notification unreadNotif = new Notification();
-        unreadNotif.setUser(testUser);
-        unreadNotif.setType("TEST_TYPE");
-        unreadNotif.setTitle("Test Notification");
-        unreadNotif.setMessage("Test message");
-        unreadNotif.setRead(false);
-        unreadNotif = notificationRepository.save(unreadNotif);
+        Notification unreadNotif = notificationRepository.save(newNotification(testUser, "Test Notification", false));
 
         mockMvc.perform(patch(baseUrl + "/" + unreadNotif.getId() + "/read")
                 .header("Authorization", "Bearer " + authToken))
@@ -107,7 +119,6 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.read", equalTo(true)))
                 .andExpect(jsonPath("$.id", equalTo(unreadNotif.getId().toString())));
 
-        // Verify in database
         Notification saved = notificationRepository.findById(unreadNotif.getId()).orElseThrow();
         assertThat(saved.isRead()).isTrue();
         assertThat(saved.getReadAt()).isNotNull();
@@ -125,14 +136,9 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("PUT /read-all should mark all unread notifications as read")
     void testMarkAllAsReadWithPut() throws Exception {
-        // Create mix of read and unread notifications
         for (int i = 0; i < 3; i++) {
-            Notification notif = new Notification();
-            notif.setUser(testUser);
-            notif.setType("TEST_TYPE");
-            notif.setTitle("Test Notification " + i);
+            Notification notif = newNotification(testUser, "Test Notification " + i, false);
             notif.setMessage("Test message " + i);
-            notif.setRead(false);
             notificationRepository.save(notif);
         }
 
@@ -142,7 +148,6 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.message", equalTo("All notifications marked as read")))
                 .andExpect(jsonPath("$.count", equalTo(3)));
 
-        // Verify all are marked as read
         var unreadNotifications = notificationRepository.findByUserAndReadFalse(testUser);
         assertThat(unreadNotifications).isEmpty();
     }
@@ -150,14 +155,9 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("PATCH /read-all should mark all unread notifications as read")
     void testMarkAllAsReadWithPatch() throws Exception {
-        // Create mix of read and unread notifications
         for (int i = 0; i < 3; i++) {
-            Notification notif = new Notification();
-            notif.setUser(testUser);
-            notif.setType("TEST_TYPE");
-            notif.setTitle("Test Notification " + i);
+            Notification notif = newNotification(testUser, "Test Notification " + i, false);
             notif.setMessage("Test message " + i);
-            notif.setRead(false);
             notificationRepository.save(notif);
         }
 
@@ -167,7 +167,6 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.message", equalTo("All notifications marked as read")))
                 .andExpect(jsonPath("$.count", equalTo(3)));
 
-        // Verify all are marked as read
         var unreadNotifications = notificationRepository.findByUserAndReadFalse(testUser);
         assertThat(unreadNotifications).isEmpty();
     }
@@ -175,14 +174,9 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("PUT /mark-all-read (legacy) should mark all as read with deprecation headers")
     void testMarkAllAsReadLegacyWithPut() throws Exception {
-        // Create unread notifications
         for (int i = 0; i < 2; i++) {
-            Notification notif = new Notification();
-            notif.setUser(testUser);
-            notif.setType("TEST_TYPE");
-            notif.setTitle("Test Notification " + i);
+            Notification notif = newNotification(testUser, "Test Notification " + i, false);
             notif.setMessage("Test message " + i);
-            notif.setRead(false);
             notificationRepository.save(notif);
         }
 
@@ -200,14 +194,9 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("PATCH /mark-all-read (legacy) should mark all as read with deprecation headers")
     void testMarkAllAsReadLegacyWithPatch() throws Exception {
-        // Create unread notifications
         for (int i = 0; i < 2; i++) {
-            Notification notif = new Notification();
-            notif.setUser(testUser);
-            notif.setType("TEST_TYPE");
-            notif.setTitle("Test Notification " + i);
+            Notification notif = newNotification(testUser, "Test Notification " + i, false);
             notif.setMessage("Test message " + i);
-            notif.setRead(false);
             notificationRepository.save(notif);
         }
 
@@ -235,12 +224,7 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("PATCH /{notificationId}/read should not modify already read notification")
     void testMarkAlreadyReadNotificationIdempotent() throws Exception {
-        Notification readNotif = new Notification();
-        readNotif.setUser(testUser);
-        readNotif.setType("TEST_TYPE");
-        readNotif.setTitle("Already Read");
-        readNotif.setMessage("Test message");
-        readNotif.setRead(true);
+        Notification readNotif = newNotification(testUser, "Already Read", true);
         readNotif.setReadAt(LocalDateTime.now());
         readNotif = notificationRepository.save(readNotif);
 
@@ -251,7 +235,6 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.read", equalTo(true)));
 
-        // Verify readAt wasn't updated
         Notification saved = notificationRepository.findById(readNotif.getId()).orElseThrow();
         assertThat(saved.getReadAt()).isEqualTo(originalReadAt);
     }
@@ -273,6 +256,7 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Endpoints should respect role-based access control")
     void testRoleBasedAccessControl() throws Exception {
         User learner = new User();
+        learner.setOrganization(testOrganization);
         learner.setEmail("learner@test.local");
         learner.setPasswordHash("hashedPassword");
         learner.setFirstName("Test");
@@ -283,7 +267,6 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
 
         String learnerToken = jwtService.generateToken(learner.getEmail());
 
-        // Should succeed - learners have access
         mockMvc.perform(get(baseUrl + "/")
                 .header("Authorization", "Bearer " + learnerToken)
                 .param("page", "0")
@@ -291,4 +274,3 @@ public class NotificationControllerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isOk());
     }
 }
-
