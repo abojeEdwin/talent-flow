@@ -60,3 +60,4 @@ app:
 
   mail:
     from: ${EMAIL_FROM}
+    from-name: ${SMTP_FROM_NAME:Talent Flow}
