@@ -27,7 +27,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -47,7 +46,6 @@ public class AuthServiceImpl implements AuthService {
     private long passwordResetExpiryHours;
 
     @Override
-    @Transactional
     public RegisterResponse register(RegisterRequest request) {
         String email = request.email().trim().toLowerCase();
         if (userRepository.existsByEmailIgnoreCase(email)) {
@@ -89,7 +87,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional
     public LoginResponse login(LoginRequest request) {
         try {
             authenticationManager.authenticate(
@@ -126,7 +123,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public AuthResponse currentUser(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof org.springframework.security.core.userdetails.UserDetails userDetails)) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Not an authenticated user");
@@ -142,7 +138,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional
     public void resetPassword(String tokenValue, String newPassword) {
         PasswordResetToken token = passwordResetTokenRepository.findByToken(tokenValue)
                 .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Invalid token"));
@@ -165,7 +160,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional
     public String generatePasswordResetToken(User user) {
         passwordResetTokenRepository.deleteByUser(user);
         PasswordResetToken token = new PasswordResetToken();

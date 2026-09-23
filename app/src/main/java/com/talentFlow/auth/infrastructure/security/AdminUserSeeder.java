@@ -113,7 +113,7 @@ public class AdminUserSeeder implements CommandLineRunner {
             }
 
             if (user.getId() == null || changed) {
-                userRepository.saveAndFlush(user);
+                userRepository.save(user);
                 log.info("Admin user seeded/updated successfully: {}", normalizedEmail);
             } else {
                 log.info("Admin user already exists and is ready: {}", normalizedEmail);

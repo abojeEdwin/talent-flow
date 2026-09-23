@@ -31,7 +31,6 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -60,7 +59,6 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
 
 
     @Override
-    @Transactional(readOnly = true)
     public List<CourseResponse> browsePublishedCourses() {
         return courseRepository.findByStatus(CourseStatus.PUBLISHED).stream()
                 .map(this::toCourseResponse)
@@ -68,9 +66,8 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     }
 
     @Override
-    @Transactional
     public CourseResponse enrollInCourse(UUID courseId, User learner) {
-        if (learner.getRole() == RoleName.LEARNER && !teamMemberRepository.existsByUser_Id(learner.getId())) {
+        if (learner.getRole() == RoleName.LEARNER && !teamMemberRepository.existsByUserId(learner.getId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only interns allocated to a team can enroll in a course");
         }
 
@@ -97,7 +94,6 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<CourseResponse> myEnrollments(User learner) {
         return courseEnrollmentRepository.findByUser(learner)
                 .stream()
@@ -109,7 +105,6 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public CourseDetailResponse getCourseDetail(UUID courseId, User learner) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Course not found"));
@@ -122,7 +117,7 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
         List<CourseModule> modules = courseModuleRepository.findByCourseOrderByPositionAsc(course);
         List<Lesson> lessons = modules.isEmpty()
                 ? List.of()
-                : lessonRepository.findByModuleInOrderByModule_PositionAscPositionAsc(modules);
+                : lessonRepository.findByModuleInOrderByPositionAsc(modules);
         Map<UUID, Boolean> completionMap = buildCompletionMap(learner, lessons);
         Map<UUID, List<Lesson>> lessonsByModule = lessons.stream()
                 .collect(Collectors.groupingBy(lesson -> lesson.getModule().getId()));
@@ -144,7 +139,6 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     }
 
     @Override
-    @Transactional
     public LessonCompletionResponse completeLesson(UUID lessonId, User learner) {
         Lesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Lesson not found"));
@@ -178,7 +172,6 @@ public class LearnerCourseServiceImpl implements LearnerCourseService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public String getCourseCoverImagePresignedUrl(UUID courseId) {
         return mediaUrlService.getCourseCoverImagePresignedUrl(courseId);
     }

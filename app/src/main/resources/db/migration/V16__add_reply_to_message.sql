@@ -1,2 +1,0 @@
--- Placeholder migration - reply_to_message_id column already created in V15__create_chat_schema.sql
--- No additional changes needed in this migration

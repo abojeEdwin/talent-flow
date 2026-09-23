@@ -21,7 +21,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
@@ -52,7 +51,6 @@ public class MediaUploadWorker {
         }
     }
 
-    @Transactional
     public void processSingleJob(java.util.UUID jobId) {
         MediaUploadJob job = mediaUploadJobRepository.findById(jobId).orElse(null);
         if (job == null || job.getStatus() != UploadStatus.PENDING) {

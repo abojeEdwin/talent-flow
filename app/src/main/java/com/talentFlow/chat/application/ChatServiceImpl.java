@@ -30,7 +30,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -72,7 +71,6 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional
     public ConversationResponse createDirectConversation(UUID otherUserId, User creator) {
         if (creator.getId().equals(otherUserId)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Cannot create direct chat with yourself");
@@ -92,7 +90,6 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional
     public ConversationResponse createGroupConversation(CreateConversationRequest request, User creator) {
         ChatType type = request.getType();
 
@@ -143,14 +140,12 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<ConversationResponse> getUserConversations(User user, Pageable pageable) {
         return conversationRepository.findConversationsByUserId(user.getId(), pageable)
                 .map(conversation -> toConversationResponse(conversation, user.getId()));
     }
 
     @Override
-    @Transactional(readOnly = true)
     public ConversationResponse getConversation(UUID conversationId, User user) {
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Conversation not found"));
@@ -161,7 +156,6 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Page<MessageResponse> getMessages(UUID conversationId, User user, Pageable pageable) {
         ensureParticipant(conversationId, user.getId());
 
@@ -170,7 +164,6 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional
     public MessageResponse sendMessage(UUID conversationId, User sender, SendMessageRequest request) {
         ensureParticipant(conversationId, sender.getId());
 
@@ -204,11 +197,10 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional
     public void markAsRead(UUID conversationId, User user) {
         ensureParticipant(conversationId, user.getId());
 
-        List<Message> unreadMessages = messageRepository.findRecentByConversationId(
+        List<Message> unreadMessages = messageRepository.findTop100ByConversationIdOrderByCreatedAtDesc(
                 conversationId,
                 Pageable.ofSize(100)
         ).stream()
@@ -234,7 +226,6 @@ public class ChatServiceImpl implements ChatService {
 
         // Batch save all receipts
         readReceiptRepository.saveAll(receipts);
-        readReceiptRepository.flush(); // Force immediate write to database
 
         // Notify via WebSocket
         var readEvent = new ReadEventPayload(user.getId(), messageIds, now);
@@ -242,7 +233,6 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public ReadReceiptResponse getReadReceipts(UUID conversationId, UUID messageId) {
         ensureParticipant(conversationId, null);
 
@@ -262,7 +252,6 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional
     public void addParticipants(UUID conversationId, AddParticipantRequest request, User creator) {
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Conversation not found"));
@@ -309,7 +298,6 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional
     public void removeParticipant(UUID conversationId, UUID userId, User remover) {
         ensureParticipant(conversationId, remover.getId());
 
@@ -354,14 +342,14 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private List<User> getCohortUsers(UUID cohortId) {
-        return teamMemberRepository.findByTeam_Cohort_Id(cohortId).stream()
+        return teamMemberRepository.findByTeamCohortId(cohortId).stream()
                 .map(TeamMember::getUser)
                 .distinct()
                 .collect(Collectors.toList());
     }
 
     private List<User> getTeamUsers(UUID teamId) {
-        return teamMemberRepository.findByTeam_Id(teamId).stream()
+        return teamMemberRepository.findByTeamIdOrderByCreatedAtAsc(teamId).stream()
                 .map(TeamMember::getUser)
                 .collect(Collectors.toList());
     }
@@ -392,7 +380,7 @@ public class ChatServiceImpl implements ChatService {
 
         int unreadCount = 0;
         if (currentUserId != null) {
-            unreadCount = (int) messageRepository.findRecentByConversationId(
+            unreadCount = (int) messageRepository.findTop100ByConversationIdOrderByCreatedAtDesc(
                     conversation.getId(), Pageable.ofSize(100)).stream()
                     .filter(m -> !readReceiptRepository.existsByMessageIdAndUserId(m.getId(), currentUserId))
                     .count();

@@ -5,21 +5,25 @@ import com.talentFlow.common.exception.ApiException;
 import com.talentFlow.notification.application.NotificationService;
 import com.talentFlow.course.domain.Course;
 import com.talentFlow.course.domain.CourseEnrollment;
+import com.talentFlow.course.domain.CourseModule;
+import com.talentFlow.course.domain.Lesson;
 import com.talentFlow.course.domain.enums.EnrollmentStatus;
 import com.talentFlow.course.infrastructure.repository.CourseEnrollmentRepository;
+import com.talentFlow.course.infrastructure.repository.CourseModuleRepository;
 import com.talentFlow.course.infrastructure.repository.LessonProgressRepository;
 import com.talentFlow.course.infrastructure.repository.LessonRepository;
 import com.talentFlow.progress.web.dto.ProgressComputationResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -27,13 +31,13 @@ public class ProgressTrackingServiceImpl implements ProgressTrackingService {
 
     private final LessonRepository lessonRepository;
     private final LessonProgressRepository lessonProgressRepository;
+    private final CourseModuleRepository courseModuleRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final CertificateService certificateService;
     private final ProgressUpdatePublisher progressUpdatePublisher;
     private final NotificationService notificationService;
 
     @Override
-    @Transactional
     public ProgressComputationResult recalculateEnrollmentProgress(User learner, Course course) {
         CourseEnrollment enrollment = courseEnrollmentRepository.findByCourseAndUser(course, learner)
                 .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Learner is not enrolled in the course"));
@@ -41,8 +45,13 @@ public class ProgressTrackingServiceImpl implements ProgressTrackingService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Enrollment is revoked for this course");
         }
 
-        long totalLessons = lessonRepository.countByModule_Course(course);
-        long completedLessons = lessonProgressRepository.countByUserAndCompletedTrueAndLesson_Module_Course(learner, course);
+        List<CourseModule> modules = courseModuleRepository.findByCourseOrderByPositionAsc(course);
+        List<UUID> moduleIds = modules.stream().map(CourseModule::getId).toList();
+        long totalLessons = lessonRepository.countByModuleIdIn(moduleIds);
+        List<UUID> lessonIds = lessonRepository.findByModuleInOrderByPositionAsc(modules).stream()
+                .map(Lesson::getId)
+                .toList();
+        long completedLessons = lessonProgressRepository.countByUserAndCompletedTrueAndLessonIdIn(learner, lessonIds);
 
         BigDecimal progressPct = BigDecimal.ZERO;
         if (totalLessons > 0) {

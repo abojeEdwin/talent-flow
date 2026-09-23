@@ -24,7 +24,6 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -49,7 +48,6 @@ public class AdminCourseServiceImpl implements AdminCourseService {
     private final NotificationService notificationService;
 
     @Override
-    @Transactional(readOnly = true)
     @Cacheable(value = "courses", key = "#status?.name() ?: 'all'")
     public List<CourseResponse> listCourses(CourseStatus status) {
         List<Course> courses = status == null ? courseRepository.findAll() : courseRepository.findByStatus(status);
@@ -57,7 +55,6 @@ public class AdminCourseServiceImpl implements AdminCourseService {
     }
 
     @Override
-    @Transactional
     @CacheEvict(value = "courses", allEntries = true)
     public CourseResponse publishCourse(UUID courseId, User actor) {
         Course course = getCourse(courseId);
@@ -73,7 +70,6 @@ public class AdminCourseServiceImpl implements AdminCourseService {
     }
 
     @Override
-    @Transactional
     @CacheEvict(value = "courses", allEntries = true)
     public CourseResponse unpublishCourse(UUID courseId, User actor) {
         Course course = getCourse(courseId);
@@ -89,7 +85,6 @@ public class AdminCourseServiceImpl implements AdminCourseService {
     }
 
     @Override
-    @Transactional
     @CacheEvict(value = "courses", allEntries = true)
     public CourseResponse archiveCourse(UUID courseId, User actor) {
         Course course = getCourse(courseId);
@@ -102,7 +97,6 @@ public class AdminCourseServiceImpl implements AdminCourseService {
     }
 
     @Override
-    @Transactional
     @CacheEvict(value = "courses", allEntries = true)
     public CourseResponse assignInstructors(UUID courseId, AssignInstructorsRequest request, User actor) {
         Course course = getCourse(courseId);
@@ -118,7 +112,6 @@ public class AdminCourseServiceImpl implements AdminCourseService {
                 .collect(Collectors.toSet());
 
         courseInstructorRepository.deleteByCourse(course);
-        courseInstructorRepository.flush();
 
         for (UUID instructorId : allInstructorIds) {
             User instructor = getMentorUser(instructorId);
@@ -135,10 +128,9 @@ public class AdminCourseServiceImpl implements AdminCourseService {
     }
 
     @Override
-    @Transactional
     public int bulkEnrollCohort(UUID courseId, UUID cohortId, User actor) {
         Course course = getCourse(courseId);
-        Set<User> users = teamMemberRepository.findByTeam_Cohort_Id(cohortId).stream()
+        Set<User> users = teamMemberRepository.findByTeamCohortId(cohortId).stream()
                 .map(TeamMember::getUser)
                 .collect(Collectors.toSet());
         int enrolled = 0;
@@ -155,10 +147,9 @@ public class AdminCourseServiceImpl implements AdminCourseService {
     }
 
     @Override
-    @Transactional
     public int bulkEnrollTeam(UUID courseId, UUID teamId, User actor) {
         Course course = getCourse(courseId);
-        Set<User> users = teamMemberRepository.findByTeam_Id(teamId).stream()
+        Set<User> users = teamMemberRepository.findByTeamIdOrderByCreatedAtAsc(teamId).stream()
                 .map(TeamMember::getUser)
                 .collect(Collectors.toSet());
         int enrolled = 0;
@@ -175,7 +166,6 @@ public class AdminCourseServiceImpl implements AdminCourseService {
     }
 
     @Override
-    @Transactional
     public void revokeEnrollment(UUID courseId, UUID userId, User actor) {
         Course course = getCourse(courseId);
         User user = userRepository.findById(userId)

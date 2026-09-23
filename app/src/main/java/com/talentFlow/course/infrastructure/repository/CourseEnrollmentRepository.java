@@ -6,13 +6,13 @@ import com.talentFlow.course.domain.CourseEnrollment;
 import com.talentFlow.course.domain.enums.EnrollmentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface CourseEnrollmentRepository extends JpaRepository<CourseEnrollment, UUID> {
+public interface CourseEnrollmentRepository extends MongoRepository<CourseEnrollment, UUID> {
     Optional<CourseEnrollment> findByCourseAndUser(Course course, User user);
 
     List<CourseEnrollment> findByCourseAndStatus(Course course, EnrollmentStatus status);
@@ -20,6 +20,6 @@ public interface CourseEnrollmentRepository extends JpaRepository<CourseEnrollme
     Page<CourseEnrollment> findByCourseInAndStatusIn(List<Course> courses, List<EnrollmentStatus> statuses, Pageable pageable);
 
     List<CourseEnrollment> findByUserAndStatus(User user, EnrollmentStatus status);
-    List<CourseEnrollment> findByUser(User user);
 
+    List<CourseEnrollment> findByUser(User user);
 }
