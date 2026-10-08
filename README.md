@@ -1,5 +1,16 @@
 # talent-flow
 
+## Deploying the API on Vercel
+
+The API is deployed as a container using [Dockerfile.vercel](Dockerfile.vercel). `vercel.json` enables Fluid compute, and the container binds Spring Boot to Vercel's `PORT` automatically.
+
+1. Install and authenticate the Vercel CLI: `npm i -g vercel`, then `vercel login`.
+2. From the repository root, run `vercel link` and select the Vercel project.
+3. In **Project Settings > Environment Variables**, add production values for `MONGODB_URI`, `JWT_SECRET`, `PASSWORD_RESET_FRONTEND_URL`, `LOGIN_URL`, `EMAIL_FROM`, `SMTP_USER`, `SMTP_PASSWORD`, `S3_BUCKET_ACCESS_KEY`, `S3_BUCKET_SECRET_KEY`, and `S3_BUCKET_NAME`. Add `S3_BUCKET_REGION` when it is not `us-east-1`.
+4. Run `vercel --prod`.
+
+Keep `ADMIN_SEED_ENABLED=false` unless provisioning an administrator, and never commit credentials to either Spring configuration file. The health endpoint is `/actuator/health`.
+
 ## Deploying on Render
 
 This repository includes a Render Blueprint at [render.yaml](render.yaml).
