@@ -36,7 +36,7 @@ public class SecurityConfig {
     private final AuthenticationEntryPointImpl authenticationEntryPoint;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Value("${CORS_ALLOWED_ORIGINS:http://localhost:3000,https://talent-flow-frontend-design.vercel.app}")
+    @Value("${CORS_ALLOWED_ORIGINS:http://localhost:3000,https://talent-flow-frontend-design.vercel.app,https://dev.eddythebuilder.me,https://eddythebuilder.me}")
     private String corsAllowedOrigins;
 
     @Bean
