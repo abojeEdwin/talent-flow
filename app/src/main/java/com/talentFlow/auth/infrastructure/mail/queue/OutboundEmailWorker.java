@@ -23,6 +23,12 @@ public class OutboundEmailWorker {
     @Value("${app.mail.from}")
     private String fromAddress;
 
+    @Value("${app.mail.from-name:Talent Flow}")
+    private String fromName;
+
+    @Value("${app.mail.reply-to:${app.mail.from:}}")
+    private String replyToAddress;
+
     @Scheduled(fixedDelay = 5000)
     public void processPendingEmails() {
         List<OutboundEmailJob> jobs = outboundEmailJobRepository
@@ -81,7 +87,8 @@ public class OutboundEmailWorker {
                     job.getId(), job.getType(), from, to, subj);
 
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(from);
+            message.setFrom(resolveFromAddress());
+            message.setReplyTo(resolveReplyToAddress());
             message.setTo(to);
             message.setSubject(subj);
             message.setText(resolveBody(job));
@@ -140,10 +147,23 @@ public class OutboundEmailWorker {
 
     private String resolveFromAddress() {
         String configured = fromAddress == null ? "" : fromAddress.trim();
-        if (!configured.isBlank()) {
+        if (configured.isBlank()) {
+            throw new IllegalStateException("Missing valid app.mail.from; configure a verified sender email");
+        }
+        String name = fromName == null ? "" : fromName.trim();
+        if (name.isBlank()) {
             return configured;
         }
-        throw new IllegalStateException("Missing valid app.mail.from; configure a verified sender email");
+        return name + " <" + configured + ">";
+    }
+
+    private String resolveReplyToAddress() {
+        String configured = replyToAddress == null ? "" : replyToAddress.trim();
+        if (configured.isBlank()) {
+            return null;
+        }
+        String name = fromName == null ? "" : fromName.trim();
+        return name.isBlank() ? configured : name + " <" + configured + ">";
     }
 
     private String buildErrorMessage(Exception exception) {
