@@ -6,7 +6,7 @@ The API is deployed as a container using [Dockerfile.vercel](Dockerfile.vercel).
 
 1. Install and authenticate the Vercel CLI: `npm i -g vercel`, then `vercel login`.
 2. From the repository root, run `vercel link` and select the Vercel project.
-3. In **Project Settings > Environment Variables**, add production values for `MONGODB_URI`, `JWT_SECRET`, `PASSWORD_RESET_FRONTEND_URL`, `LOGIN_URL`, `EMAIL_FROM`, `SMTP_USER`, `SMTP_PASSWORD`, `S3_BUCKET_ACCESS_KEY`, `S3_BUCKET_SECRET_KEY`, and `S3_BUCKET_NAME`. Add `S3_BUCKET_REGION` when it is not `us-east-1`.
+3. In **Project Settings > Environment Variables**, add production values for `MONGODB_URI`, `JWT_SECRET`, `PASSWORD_RESET_FRONTEND_URL`, `LOGIN_URL`, `EMAIL_FROM`, `SMTP_USER`, `SMTP_PASSWORD`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`.
 4. Run `vercel --prod`.
 
 Keep `ADMIN_SEED_ENABLED=false` unless provisioning an administrator, and never commit credentials to either Spring configuration file. The health endpoint is `/actuator/health`.
@@ -25,7 +25,7 @@ This repository includes a Render Blueprint at [render.yaml](render.yaml).
    - `RESEND_API_KEY`, `EMAIL_FROM`
    - `JWT_SECRET` (32+ characters), optional `JWT_EXPIRATION_MINUTES`
    - `PASSWORD_RESET_FRONTEND_URL`, `LOGIN_URL`
-   - `S3_BUCKET_ACCESS_KEY`, `S3_BUCKET_SECRET_KEY`, `S3_BUCKET_NAME` (and region if needed)
+   - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
    - `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD` (only if `ADMIN_SEED_ENABLED=true`)
 5. Deploy.
 

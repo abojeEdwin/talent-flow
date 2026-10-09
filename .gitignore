@@ -30,3 +30,4 @@ app/.settings/
 hs_err_pid*
 replay_pid*
 .vercel
+.env*

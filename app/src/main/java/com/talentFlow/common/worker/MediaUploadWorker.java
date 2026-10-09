@@ -1,0 +1,209 @@
+package com.talentFlow.common.worker;
+
+import com.talentFlow.common.service.FileStorageService;
+import com.talentFlow.common.repository.MediaUploadJobRepository;
+import com.talentFlow.common.data.MediaUploadJob;
+import com.talentFlow.common.data.enums.MediaUploadTargetType;
+import com.talentFlow.common.data.enums.UploadStatus;
+import com.talentFlow.auth.data.entity.User;
+import com.talentFlow.auth.data.enums.RoleName;
+import com.talentFlow.repository.UserRepository;
+import com.talentFlow.service.NotificationService;
+import com.talentFlow.data.entity.Course;
+import com.talentFlow.data.entity.CourseMaterial;
+import com.talentFlow.data.entity.Lesson;
+import com.talentFlow.data.Enums.LessonUploadStatus;
+import com.talentFlow.data.Enums.MaterialUploadStatus;
+import com.talentFlow.repository.CourseMaterialRepository;
+import com.talentFlow.repository.CourseRepository;
+import com.talentFlow.repository.LessonRepository;
+import com.talentFlow.common.service.TenantContextHolder;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import org.springframework.data.domain.Pageable;
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class MediaUploadWorker {
+
+    private final MediaUploadJobRepository mediaUploadJobRepository;
+    private final FileStorageService fileStorageService;
+    private final NotificationService notificationService;
+    private final UserRepository userRepository;
+    private final CourseRepository courseRepository;
+    private final CourseMaterialRepository courseMaterialRepository;
+    private final LessonRepository lessonRepository;
+
+
+    @Scheduled(fixedDelay = 5000)
+    public void processPendingUploads() {
+        List<MediaUploadJob> jobs = mediaUploadJobRepository
+                .findTop20ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(UploadStatus.PENDING, LocalDateTime.now());
+        for (MediaUploadJob job : jobs) {
+            processSingleJob(job.getId());
+        }
+    }
+
+    public void processSingleJob(java.util.UUID jobId) {
+        MediaUploadJob job = mediaUploadJobRepository.findById(jobId).orElse(null);
+        if (job == null || job.getStatus() != UploadStatus.PENDING) {
+            return;
+        }
+
+        UUID tenantId = resolveTenantId(job);
+        if (tenantId == null) {
+            log.error("Media upload job {} has no tenant organization; skipping", job.getId());
+            return;
+        }
+
+        TenantContextHolder.setTenantId(tenantId);
+        try {
+            job.setStatus(UploadStatus.PROCESSING);
+            job.setAttempts(job.getAttempts() + 1);
+            mediaUploadJobRepository.save(job);
+
+            String uploadedUrl = fileStorageService.uploadBytes(
+                    job.getPayload(),
+                    job.getOriginalFilename(),
+                    job.getContentType(),
+                    job.getFolder()
+            );
+            applyUploadedUrl(job.getTargetType(), job.getTargetId(), uploadedUrl);
+
+            job.setStatus(UploadStatus.COMPLETED);
+            job.setUploadedUrl(uploadedUrl);
+            job.setPayload(null);
+            job.setLastError(null);
+            mediaUploadJobRepository.save(job);
+            publishUploadNotification(job, "Upload completed", "Your upload has been processed successfully");
+        } catch (Exception exception) {
+            log.warn("Media upload job {} failed on attempt {}: {}", job.getId(), job.getAttempts(), exception.getMessage());
+            handleFailure(job, exception.getMessage());
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    private UUID resolveTenantId(MediaUploadJob job) {
+        if (job.getOrganization() != null && job.getOrganization().getId() != null) {
+            return job.getOrganization().getId();
+        }
+        if (job.getInitiatedByUserId() == null) {
+            return null;
+        }
+        return userRepository.findById(job.getInitiatedByUserId())
+                .map(User::getOrganization)
+                .map(organization -> organization.getId())
+                .orElse(null);
+    }
+
+    private void applyUploadedUrl(MediaUploadTargetType targetType, java.util.UUID targetId, String uploadedUrl) {
+        switch (targetType) {
+            case COURSE_COVER -> {
+                Course course = courseRepository.findById(targetId).orElseThrow();
+                course.setCoverImageUrl(uploadedUrl);
+                courseRepository.save(course);
+            }
+            case COURSE_INTRO_VIDEO -> {
+                Course course = courseRepository.findById(targetId).orElseThrow();
+                course.setIntroVideoUrl(uploadedUrl);
+                courseRepository.save(course);
+            }
+            case COURSE_MATERIAL -> {
+                CourseMaterial material = courseMaterialRepository.findById(targetId).orElseThrow();
+                material.setContentUrl(uploadedUrl);
+                material.setUploadStatus(MaterialUploadStatus.COMPLETED);
+                courseMaterialRepository.save(material);
+            }
+            case LESSON_CONTENT -> {
+                Lesson lesson = lessonRepository.findById(targetId).orElseThrow();
+                lesson.setContentUrl(uploadedUrl);
+                lesson.setUploadStatus(LessonUploadStatus.COMPLETED);
+                lessonRepository.save(lesson);
+            }
+        }
+    }
+
+    private void handleFailure(MediaUploadJob job, String errorMessage) {
+        job.setLastError(errorMessage);
+        if (job.getAttempts() >= job.getMaxAttempts()) {
+            job.setStatus(UploadStatus.FAILED);
+            if (job.getTargetType() == MediaUploadTargetType.COURSE_MATERIAL) {
+                courseMaterialRepository.findById(job.getTargetId()).ifPresent(material -> {
+                    material.setUploadStatus(MaterialUploadStatus.FAILED);
+                    courseMaterialRepository.save(material);
+                });
+            } else if (job.getTargetType() == MediaUploadTargetType.LESSON_CONTENT) {
+                lessonRepository.findById(job.getTargetId()).ifPresent(lesson -> {
+                    lesson.setUploadStatus(LessonUploadStatus.FAILED);
+                    lessonRepository.save(lesson);
+                });
+            }
+        } else {
+            job.setStatus(UploadStatus.PENDING);
+            long backoffSeconds = (long) Math.pow(2, Math.max(1, job.getAttempts()));
+            job.setNextAttemptAt(LocalDateTime.now().plusSeconds(backoffSeconds));
+        }
+        mediaUploadJobRepository.save(job);
+
+        if (job.getStatus() == UploadStatus.FAILED) {
+            publishUploadNotification(job, "Upload failed", "Upload processing failed after retries");
+            notifyAdminEscalation(job);
+        }
+    }
+
+    private void publishUploadNotification(MediaUploadJob job, String title, String message) {
+        if (job.getInitiatedByUserId() == null) {
+            return;
+        }
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("jobId", job.getId());
+        payload.put("targetType", job.getTargetType().name());
+        payload.put("targetId", job.getTargetId());
+        payload.put("status", job.getStatus().name());
+        payload.put("filename", job.getOriginalFilename());
+        payload.put("uploadedUrl", job.getUploadedUrl());
+        payload.put("error", job.getLastError());
+
+        notificationService.notifyUser(
+                job.getInitiatedByUserId(),
+                "UPLOAD_STATUS",
+                title,
+                message,
+                payload
+        );
+    }
+
+    private void notifyAdminEscalation(MediaUploadJob job) {
+        List<User> adminUsers = userRepository.findByRole(RoleName.SUPER_ADMIN, Pageable.unpaged()).getContent();
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("jobId", job.getId());
+        payload.put("targetType", job.getTargetType().name());
+        payload.put("targetId", job.getTargetId());
+        payload.put("status", job.getStatus().name());
+        payload.put("filename", job.getOriginalFilename());
+        payload.put("error", job.getLastError());
+        payload.put("initiatedByUserId", job.getInitiatedByUserId());
+
+        for (User admin : adminUsers) {
+            notificationService.notifyUser(
+                    admin.getId(),
+                    "UPLOAD_FAILED_ESCALATION",
+                    "Upload processing failed",
+                    "A media upload failed after maximum retries and needs attention.",
+                    payload
+            );
+        }
+    }
+}

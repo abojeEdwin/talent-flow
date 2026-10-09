@@ -1,0 +1,98 @@
+package com.talentFlow.controller;
+
+import com.talentFlow.service.AdminProgramService;
+import com.talentFlow.data.dto.AllocateUserToTeamRequest;
+import com.talentFlow.data.dto.AutoAllocateTeamMembersResponse;
+import com.talentFlow.data.dto.CohortResponse;
+import com.talentFlow.data.dto.CreateCohortRequest;
+import com.talentFlow.data.dto.CreateProjectTeamRequest;
+import com.talentFlow.data.dto.ProjectTeamResponse;
+import com.talentFlow.data.dto.TeamMemberResponse;
+import com.talentFlow.auth.data.entity.User;
+import com.talentFlow.repository.UserRepository;
+import com.talentFlow.common.exception.ApiException;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/admin/programs")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ORG_ADMIN','SUPER_ADMIN')")
+public class AdminProgramController {
+
+    private final AdminProgramService adminProgramService;
+    private final UserRepository userRepository;
+
+    @PostMapping("/cohorts")
+    public CohortResponse createCohort(@Valid @RequestBody CreateCohortRequest request, Authentication authentication) {
+        return adminProgramService.createCohort(request, getActor(authentication));
+    }
+
+    @GetMapping("/all-cohorts")
+    public List<CohortResponse> listAllCohorts() {
+        return adminProgramService.listAllCohorts();
+    }
+
+    @PostMapping("/teams")
+    public ProjectTeamResponse createTeam(@Valid @RequestBody CreateProjectTeamRequest request, Authentication authentication) {
+        return adminProgramService.createProjectTeam(request, getActor(authentication));
+    }
+
+    @GetMapping("/teams")
+    public List<ProjectTeamResponse> listAllProjectTeams() {
+        return adminProgramService.listAllProjectTeams();
+    }
+
+    @PostMapping("/teams/{teamId}/members")
+    public TeamMemberResponse allocateMember(
+            @PathVariable UUID teamId,
+            @Valid @RequestBody AllocateUserToTeamRequest request,
+            Authentication authentication
+    ) {
+        return adminProgramService.allocateUserToTeam(teamId, request, getActor(authentication));
+    }
+
+    @PostMapping("/teams/{teamId}/members/auto-allocate")
+    public AutoAllocateTeamMembersResponse autoAllocateMembers(
+            @PathVariable UUID teamId,
+            Authentication authentication
+    ) {
+        return adminProgramService.autoAllocateUnallocatedInterns(teamId, getActor(authentication));
+    }
+
+    @GetMapping("/teams/{teamId}/members")
+    public List<TeamMemberResponse> listTeamMembers(@PathVariable UUID teamId) {
+        return adminProgramService.listTeamMembers(teamId);
+    }
+
+    @GetMapping("/cohorts/{cohortId}/teams")
+    public List<ProjectTeamResponse> listCohortTeams(@PathVariable UUID cohortId) {
+        return adminProgramService.listCohortTeams(cohortId);
+    }
+
+    @GetMapping("/allocated-interns")
+    public List<TeamMemberResponse> listAllAllocatedInterns() {
+        return adminProgramService.listAllAllocatedInterns();
+    }
+
+    private User getActor(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails userDetails)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Not an authenticated user");
+        }
+        return userRepository.findByEmailIgnoreCase(userDetails.getUsername())
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+    }
+}

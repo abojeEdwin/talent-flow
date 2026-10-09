@@ -23,11 +23,12 @@ spring:
   jackson:
     serialization:
       write-dates-as-timestamps: false
-  s3:
-    s3-bucket-access-key: ${S3_BUCKET_ACCESS_KEY:}
-    s3-bucket-secret-key: ${S3_BUCKET_SECRET_KEY:}
-    s3-bucket-region: ${S3_BUCKET_REGION:us-east-1}
-    s3-bucket-name: ${S3_BUCKET_NAME:}
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
+  migration:
+    enabled: ${CLOUDINARY_MIGRATION_ENABLED:false}
 
 server:
   port: ${PORT:8080}

@@ -1,15 +1,15 @@
 package com.talentFlow.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.talentFlow.auth.domain.User;
-import com.talentFlow.auth.domain.enums.RoleName;
-import com.talentFlow.auth.domain.enums.UserStatus;
-import com.talentFlow.auth.infrastructure.repository.UserRepository;
-import com.talentFlow.auth.infrastructure.security.JwtService;
-import com.talentFlow.notification.domain.Notification;
-import com.talentFlow.notification.infrastructure.repository.NotificationRepository;
-import com.talentFlow.organization.domain.Organization;
-import com.talentFlow.organization.infrastructure.repository.OrganizationRepository;
+import com.talentFlow.auth.data.entity.User;
+import com.talentFlow.auth.data.enums.RoleName;
+import com.talentFlow.auth.data.enums.UserStatus;
+import com.talentFlow.repository.UserRepository;
+import com.talentFlow.common.security.JwtService;
+import com.talentFlow.data.entity.Notification;
+import com.talentFlow.repository.NotificationRepository;
+import com.talentFlow.data.entity.Organization;
+import com.talentFlow.repository.OrganizationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

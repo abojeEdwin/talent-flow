@@ -1,0 +1,468 @@
+package com.talentFlow.service.impl;
+
+import com.talentFlow.data.dto.*;
+import com.talentFlow.data.entity.Cohort;
+import com.talentFlow.data.entity.ProjectTeam;
+import com.talentFlow.data.entity.TeamMember;
+import com.talentFlow.repository.CohortRepository;
+import com.talentFlow.repository.ProjectTeamRepository;
+import com.talentFlow.repository.TeamMemberRepository;
+import com.talentFlow.auth.data.entity.User;
+import com.talentFlow.auth.data.enums.RoleName;
+import com.talentFlow.auth.data.enums.UserStatus;
+import com.talentFlow.repository.UserRepository;
+import com.talentFlow.data.entity.Conversation;
+import com.talentFlow.data.entity.ConversationParticipant;
+import com.talentFlow.data.entity.Message;
+import com.talentFlow.data.entity.MessageReadReceipt;
+import com.talentFlow.data.Enums.ChatType;
+import com.talentFlow.data.Enums.MessageType;
+import com.talentFlow.data.Enums.ParticipantRole;
+import com.talentFlow.repository.ConversationParticipantRepository;
+import com.talentFlow.repository.ConversationRepository;
+import com.talentFlow.repository.MessageReadReceiptRepository;
+import com.talentFlow.repository.MessageRepository;
+import com.talentFlow.common.exception.ApiException;
+import com.talentFlow.service.ChatService;
+import com.talentFlow.service.NotificationService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import static com.talentFlow.data.Enums.ChatType.*;
+import static com.talentFlow.data.Enums.ParticipantRole.OWNER;
+
+@Service
+@RequiredArgsConstructor
+public class ChatServiceImpl implements ChatService {
+
+    private static final int MAX_PARTICIPANTS = 20;
+
+    private final UserRepository userRepository;
+    private final ConversationRepository conversationRepository;
+    private final ConversationParticipantRepository participantRepository;
+    private final MessageRepository messageRepository;
+    private final MessageReadReceiptRepository readReceiptRepository;
+    private final CohortRepository cohortRepository;
+    private final ProjectTeamRepository teamRepository;
+    private final TeamMemberRepository teamMemberRepository;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;
+
+    @Override
+    public Page<SearchUserResponse> searchUsers(String query, Pageable pageable) {
+        return userRepository.searchActiveUsersByQuery(query, pageable)
+                .map(user -> new SearchUserResponse(
+                        user.getId(),
+                        user.getFirstName(),
+                        user.getLastName(),
+                        user.getEmail()
+                ));
+    }
+
+    @Override
+    public ConversationResponse createDirectConversation(UUID otherUserId, User creator) {
+        if (creator.getId().equals(otherUserId)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Cannot create direct chat with yourself");
+        }
+
+        User otherUser = userRepository.findById(otherUserId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (otherUser.getStatus() != UserStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "User is not active");
+        }
+
+        Conversation conversation = conversationRepository.findDirectConversation(DIRECT, creator.getId(), otherUserId)
+                .orElseGet(() -> createConversationEntity(DIRECT, null, creator, null, null, List.of(creator, otherUser)));
+
+        return toConversationResponse(conversation, creator.getId());
+    }
+
+    @Override
+    public ConversationResponse createGroupConversation(CreateConversationRequest request, User creator) {
+        ChatType type = request.getType();
+
+        if (type == DIRECT) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Use /direct/{userId} endpoint for direct messages");
+        }
+
+        if (type == COHORT_CHAT && !isAdmin(creator)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only admins can create cohort chats");
+        }
+
+        if (type == TEAM_CHAT && !isAdmin(creator)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only admins can create team chats");
+        }
+
+        Cohort cohort = null;
+        ProjectTeam team = null;
+        List<User> participants = new ArrayList<>();
+
+        if (type == COHORT_CHAT) {
+            cohort = cohortRepository.findById(request.getCohortId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Cohort not found"));
+
+            if (conversationRepository.findByCohortId(cohort.getId()).isPresent()) {
+                throw new ApiException(HttpStatus.CONFLICT, "Cohort chat already exists");
+            }
+
+            participants = getCohortUsers(cohort.getId());
+        } else if (type == TEAM_CHAT) {
+            team = teamRepository.findById(request.getTeamId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Team not found"));
+
+            if (conversationRepository.findByTeamId(team.getId()).isPresent()) {
+                throw new ApiException(HttpStatus.CONFLICT, "Team chat already exists");
+            }
+
+            participants = getTeamUsers(team.getId());
+        } else if (type == FREE_GROUP) {
+            participants.add(creator);
+        }
+
+        if (participants.size() > MAX_PARTICIPANTS) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Number of participants exceeds limit of " + MAX_PARTICIPANTS);
+        }
+
+        Conversation conversation = createConversationEntity(type, request.getName(), creator, cohort, team, participants);
+        return toConversationResponse(conversation, creator.getId());
+    }
+
+    @Override
+    public Page<ConversationResponse> getUserConversations(User user, Pageable pageable) {
+        return conversationRepository.findConversationsByUserId(user.getId(), pageable)
+                .map(conversation -> toConversationResponse(conversation, user.getId()));
+    }
+
+    @Override
+    public ConversationResponse getConversation(UUID conversationId, User user) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Conversation not found"));
+
+        ensureParticipant(conversation.getId(), user.getId());
+
+        return toConversationResponse(conversation, user.getId());
+    }
+
+    @Override
+    public Page<MessageResponse> getMessages(UUID conversationId, User user, Pageable pageable) {
+        ensureParticipant(conversationId, user.getId());
+
+        return messageRepository.findByConversationIdOrderByCreatedAtDesc(conversationId, pageable)
+                .map(message -> toMessageResponse(message, user.getId()));
+    }
+
+    @Override
+    public MessageResponse sendMessage(UUID conversationId, User sender, SendMessageRequest request) {
+        ensureParticipant(conversationId, sender.getId());
+
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Conversation not found"));
+
+        Message replyTo = null;
+        if (request.getReplyToMessageId() != null) {
+            replyTo = messageRepository.findById(request.getReplyToMessageId())
+                    .filter(m -> m.getConversation().getId().equals(conversationId))
+                    .orElse(null);
+        }
+
+        Message message = new Message();
+        message.setConversation(conversation);
+        message.setSender(sender);
+        message.setContent(request.getContent());
+        message.setMessageType(MessageType.TEXT);
+        message.setReplyToMessage(replyTo);
+
+        message = messageRepository.save(message);
+
+        conversation.setUpdatedAt(LocalDateTime.now());
+        conversationRepository.save(conversation);
+
+        MessageResponse response = toMessageResponse(message, sender.getId());
+        messagingTemplate.convertAndSend("/topic/chat/" + conversationId, response);
+        notifyRecipients(conversation, message, sender);
+
+        return response;
+    }
+
+    @Override
+    public void markAsRead(UUID conversationId, User user) {
+        ensureParticipant(conversationId, user.getId());
+
+        List<Message> unreadMessages = messageRepository.findTop100ByConversationIdOrderByCreatedAtDesc(
+                conversationId,
+                Pageable.ofSize(100)
+        ).stream()
+                .filter(m -> !readReceiptRepository.existsByMessageIdAndUserId(m.getId(), user.getId()))
+                .toList();
+
+        if (unreadMessages.isEmpty()) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        List<MessageReadReceipt> receipts = new ArrayList<>();
+        List<UUID> messageIds = new ArrayList<>();
+
+        for (Message message : unreadMessages) {
+            MessageReadReceipt receipt = new MessageReadReceipt();
+            receipt.setMessage(message);
+            receipt.setUser(user);
+            receipt.setReadAt(now);
+            receipts.add(receipt);
+            messageIds.add(message.getId());
+        }
+
+        // Batch save all receipts
+        readReceiptRepository.saveAll(receipts);
+
+        // Notify via WebSocket
+        var readEvent = new ReadEventPayload(user.getId(), messageIds, now);
+        messagingTemplate.convertAndSend("/topic/chat/" + conversationId + "/read", readEvent);
+    }
+
+    @Override
+    public ReadReceiptResponse getReadReceipts(UUID conversationId, UUID messageId) {
+        ensureParticipant(conversationId, null);
+
+        List<MessageReadReceipt> receipts = readReceiptRepository.findByMessageId(messageId);
+
+        List<ReadReceiptResponse.ReceiptDetail> details = receipts.stream()
+                .map(r -> new ReadReceiptResponse.ReceiptDetail(
+                        messageId,
+                        r.getUser().getId(),
+                        r.getUser().getFirstName(),
+                        r.getUser().getLastName(),
+                        r.getReadAt()
+                ))
+                .toList();
+
+        return new ReadReceiptResponse(details);
+    }
+
+    @Override
+    public void addParticipants(UUID conversationId, AddParticipantRequest request, User creator) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Conversation not found"));
+
+        ensureParticipant(conversationId, creator.getId());
+
+        if (conversation.getType() == DIRECT) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Cannot add participants to direct chat");
+        }
+
+        boolean isAdmin = participantRepository.existsByConversationIdAndUserIdAndRoleIn(
+                conversationId, creator.getId(), List.of(OWNER, ParticipantRole.ADMIN));
+
+        if (!isAdmin) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only group admins can add participants");
+        }
+
+        List<ConversationParticipant> currentParticipants = participantRepository.findByConversationId(conversationId);
+        int currentCount = currentParticipants.size();
+        int toAdd = request.getUserIds().size();
+
+        if (currentCount + toAdd > MAX_PARTICIPANTS) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Cannot add " + toAdd + " participants. Current: " + currentCount + ", Max: " + MAX_PARTICIPANTS);
+        }
+
+        for (UUID userId : request.getUserIds()) {
+            if (participantRepository.existsByConversationIdAndUserId(conversationId, userId)) {
+                continue;
+            }
+
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found: " + userId));
+
+            ConversationParticipant participant = new ConversationParticipant();
+            participant.setConversation(conversation);
+            participant.setUser(user);
+            participant.setRole(ParticipantRole.MEMBER);
+            participantRepository.save(participant);
+        }
+
+        messagingTemplate.convertAndSend("/topic/chat/" + conversationId + "/participants",
+                new ParticipantAddedPayload(conversationId, request.getUserIds()));
+    }
+
+    @Override
+    public void removeParticipant(UUID conversationId, UUID userId, User remover) {
+        ensureParticipant(conversationId, remover.getId());
+
+        ConversationParticipant participant = participantRepository.findByConversationIdAndUserId(conversationId, userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Participant not found"));
+
+        boolean isAdmin = participantRepository.existsByConversationIdAndUserIdAndRoleIn(
+                conversationId, remover.getId(), List.of(OWNER, ParticipantRole.ADMIN));
+
+        boolean isSelf = remover.getId().equals(userId);
+
+        if (!isAdmin && !isSelf) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only group admins can remove other participants");
+        }
+
+        participantRepository.delete(participant);
+
+        messagingTemplate.convertAndSend("/topic/chat/" + conversationId + "/participants",
+                new ParticipantRemovedPayload(conversationId, userId));
+    }
+
+    private Conversation createConversationEntity(ChatType type, String name, User creator, Cohort cohort,
+                                          ProjectTeam team, List<User> participants) {
+        Conversation conversation = new Conversation();
+        conversation.setType(type);
+        conversation.setName(name);
+        conversation.setCreatedBy(creator);
+        conversation.setCohort(cohort);
+        conversation.setTeam(team);
+
+        conversation = conversationRepository.save(conversation);
+
+        for (User user : participants) {
+            ConversationParticipant participant = new ConversationParticipant();
+            participant.setConversation(conversation);
+            participant.setUser(user);
+            participant.setRole(OWNER);
+            participantRepository.save(participant);
+        }
+
+        return conversation;
+    }
+
+    private List<User> getCohortUsers(UUID cohortId) {
+        return teamMemberRepository.findByTeamCohortId(cohortId).stream()
+                .map(TeamMember::getUser)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    private List<User> getTeamUsers(UUID teamId) {
+        return teamMemberRepository.findByTeamIdOrderByCreatedAtAsc(teamId).stream()
+                .map(TeamMember::getUser)
+                .collect(Collectors.toList());
+    }
+
+    private boolean isAdmin(User user) {
+        return user.getRole() == RoleName.ORG_ADMIN || user.getRole() == RoleName.SUPER_ADMIN;
+    }
+
+    private void ensureParticipant(UUID conversationId, UUID userId) {
+        if (userId != null && !participantRepository.existsByConversationIdAndUserId(conversationId, userId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You are not a participant of this conversation");
+        }
+    }
+
+    private ConversationResponse toConversationResponse(Conversation conversation, UUID currentUserId) {
+        List<ConversationParticipant> participants = participantRepository.findByConversationId(conversation.getId());
+
+        List<ConversationResponse.ParticipantResponse> participantResponses = participants.stream()
+                .map(p -> new ConversationResponse.ParticipantResponse(
+                        p.getUser().getId(),
+                        p.getUser().getFirstName(),
+                        p.getUser().getLastName(),
+                        p.getUser().getEmail(),
+                        p.getRole(),
+                        p.getJoinedAt()
+                ))
+                .toList();
+
+        int unreadCount = 0;
+        if (currentUserId != null) {
+            unreadCount = (int) messageRepository.findTop100ByConversationIdOrderByCreatedAtDesc(
+                    conversation.getId(), Pageable.ofSize(100)).stream()
+                    .filter(m -> !readReceiptRepository.existsByMessageIdAndUserId(m.getId(), currentUserId))
+                    .count();
+        }
+
+        return new ConversationResponse(
+                conversation.getId(),
+                conversation.getType(),
+                conversation.getName(),
+                conversation.getCohort() != null ? conversation.getCohort().getId() : null,
+                conversation.getCohort() != null ? conversation.getCohort().getName() : null,
+                conversation.getTeam() != null ? conversation.getTeam().getId() : null,
+                conversation.getTeam() != null ? conversation.getTeam().getName() : null,
+                participantResponses,
+                conversation.getCreatedAt(),
+                conversation.getUpdatedAt(),
+                unreadCount
+        );
+    }
+
+    private MessageResponse toMessageResponse(Message message, UUID currentUserId) {
+        boolean isRead = readReceiptRepository.existsByMessageIdAndUserId(message.getId(), currentUserId);
+
+        return new MessageResponse(
+                message.getId(),
+                message.getContent(),
+                new MessageResponse.SenderResponse(
+                        message.getSender().getId(),
+                        message.getSender().getFirstName(),
+                        message.getSender().getLastName()
+                ),
+                message.getReplyToMessage() != null ? message.getReplyToMessage().getId() : null,
+                message.getReplyToMessage() != null ? message.getReplyToMessage().getContent() : null,
+                isRead,
+                message.getCreatedAt()
+        );
+    }
+
+    private void notifyRecipients(Conversation conversation, Message message, User sender) {
+        List<UUID> recipientIds = participantRepository.findByConversationId(conversation.getId()).stream()
+                .map(participant -> participant.getUser().getId())
+                .filter(userId -> !userId.equals(sender.getId()))
+                .distinct()
+                .toList();
+
+        if (recipientIds.isEmpty()) {
+            return;
+        }
+
+        String senderName = sender.getFirstName() + " " + sender.getLastName();
+        String conversationLabel = resolveConversationLabel(conversation, senderName);
+        String trimmedContent = message.getContent() == null ? "" : message.getContent().trim();
+        String preview = trimmedContent.length() > 120 ? trimmedContent.substring(0, 117) + "..." : trimmedContent;
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("conversationId", conversation.getId());
+        payload.put("messageId", message.getId());
+        payload.put("senderId", sender.getId());
+        payload.put("senderName", senderName);
+        payload.put("chatType", conversation.getType().name());
+        payload.put("preview", preview);
+
+        for (UUID recipientId : recipientIds) {
+            notificationService.notifyUser(
+                    recipientId,
+                    "CHAT_MESSAGE_RECEIVED",
+                    "New chat message",
+                    senderName + " sent a message in " + conversationLabel + ".",
+                    payload
+            );
+        }
+    }
+
+    private String resolveConversationLabel(Conversation conversation, String senderName) {
+        if (conversation.getName() != null && !conversation.getName().isBlank()) {
+            return conversation.getName();
+        }
+        return conversation.getType() == DIRECT ? "your direct chat with " + senderName : "your chat";
+    }
+
+    private record ReadEventPayload(UUID userId, List<UUID> messageIds, LocalDateTime readAt) {}
+    private record ParticipantAddedPayload(UUID conversationId, List<UUID> userIds) {}
+    private record ParticipantRemovedPayload(UUID conversationId, UUID userId) {}
+}

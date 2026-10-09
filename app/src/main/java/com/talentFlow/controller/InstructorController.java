@@ -1,0 +1,256 @@
+package com.talentFlow.controller;
+
+import com.talentFlow.service.AdminUserService;
+import com.talentFlow.data.dto.CreateLearnerRequest;
+import com.talentFlow.data.dto.OnboardLearnerResponse;
+import com.talentFlow.auth.data.entity.User;
+import com.talentFlow.repository.UserRepository;
+import com.talentFlow.common.exception.ApiException;
+import com.talentFlow.data.dto.AssignmentFeedbackResponse;
+import com.talentFlow.data.dto.AssignmentResponse;
+import com.talentFlow.data.dto.CourseModuleResponse;
+import com.talentFlow.data.dto.CourseResponse;
+import com.talentFlow.data.dto.CreateAssignmentRequest;
+import com.talentFlow.data.dto.CreateCourseModuleRequest;
+import com.talentFlow.data.dto.CreateCourseRequest;
+import com.talentFlow.data.dto.CreateLessonRequest;
+import com.talentFlow.data.dto.InstructorProgressResponse;
+import com.talentFlow.data.dto.LearnerProgressResponse;
+import com.talentFlow.data.dto.LessonResponse;
+import com.talentFlow.data.dto.ProvideFeedbackRequest;
+import com.talentFlow.data.Enums.CourseStatus;
+import com.talentFlow.data.Enums.LessonType;
+import com.talentFlow.common.response.ApiMessageResponse;
+import com.talentFlow.service.InstructorService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/instructor")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('INSTRUCTOR','ORG_ADMIN','SUPER_ADMIN')")
+public class InstructorController {
+
+    private final InstructorService instructorService;
+    private final AdminUserService adminUserService;
+    private final UserRepository userRepository;
+
+    @PostMapping("/learners")
+    public OnboardLearnerResponse onboardLearner(
+            @Valid @RequestBody CreateLearnerRequest request,
+            Authentication authentication
+    ) {
+        return adminUserService.onboardLearner(request, getActor(authentication));
+    }
+
+    @PostMapping(value = "/courses", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public CourseResponse createCourse(@Valid @RequestBody CreateCourseRequest request, Authentication authentication) {
+        return instructorService.createCourse(request, getActor(authentication));
+    }
+
+    @PostMapping(value = "/courses", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public CourseResponse createCourseWithMedia(
+            @RequestParam("title") String title,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
+            @RequestPart(value = "introVideo", required = false) MultipartFile introVideo,
+            Authentication authentication
+
+    ) {
+        return instructorService.createCourseWithMedia(title, description, coverImage, introVideo, getActor(authentication));
+    }
+
+    @GetMapping("/my-courses")
+    public Page<CourseResponse> listMyCourses(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication
+    ) {
+        CourseStatus courseStatus = status != null ? CourseStatus.valueOf(status.toUpperCase()) : null;
+        return instructorService.listMyCourses(getActor(authentication), courseStatus, PageRequest.of(page, size));
+    }
+
+    @PostMapping("/courses/{courseId}/modules")
+    public CourseModuleResponse createCourseModule(
+            @PathVariable UUID courseId,
+            @Valid @RequestBody CreateCourseModuleRequest request,
+            Authentication authentication
+    ) {
+        return instructorService.createCourseModule(courseId, request, getActor(authentication));
+    }
+
+    @GetMapping("/courses/{courseId}/modules")
+    public Page<CourseModuleResponse> listCourseModules(
+            @PathVariable UUID courseId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication
+    ) {
+        return instructorService.listCourseModules(courseId, getActor(authentication), PageRequest.of(page, size));
+    }
+
+    @PutMapping("/modules/{moduleId}")
+    public CourseModuleResponse updateCourseModule(
+            @PathVariable UUID moduleId,
+            @Valid @RequestBody CreateCourseModuleRequest request,
+            Authentication authentication
+    ) {
+        return instructorService.updateCourseModule(moduleId, request, getActor(authentication));
+    }
+
+    @DeleteMapping("/modules/{moduleId}")
+    public ApiMessageResponse deleteCourseModule(
+            @PathVariable UUID moduleId,
+            Authentication authentication
+    ) {
+        instructorService.deleteCourseModule(moduleId, getActor(authentication));
+        return new ApiMessageResponse("Module deleted successfully");
+    }
+
+    @PostMapping(value = "/modules/{moduleId}/lessons", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public LessonResponse createLesson(
+            @PathVariable UUID moduleId,
+            @Valid @RequestBody CreateLessonRequest request,
+            Authentication authentication
+    ) {
+        return instructorService.createLesson(moduleId, request, getActor(authentication));
+    }
+
+    @PostMapping(value = "/modules/{moduleId}/lessons", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public LessonResponse createLessonWithFile(
+            @PathVariable UUID moduleId,
+            @RequestParam("title") String title,
+            @RequestParam("lessonType") LessonType lessonType,
+            @RequestParam("position") Integer position,
+            @RequestPart("file") MultipartFile file,
+            Authentication authentication
+    ) {
+        return instructorService.createLessonWithFile(moduleId, title, lessonType, position, file, getActor(authentication));
+    }
+
+    @GetMapping("/lessons/{lessonId}")
+    public LessonResponse getLesson(
+            @PathVariable UUID lessonId,
+            Authentication authentication
+    ) {
+        return instructorService.getLesson(lessonId, getActor(authentication));
+    }
+
+    @PutMapping(value = "/lessons/{lessonId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public LessonResponse updateLesson(
+            @PathVariable UUID lessonId,
+            @Valid @RequestBody CreateLessonRequest request,
+            Authentication authentication
+    ) {
+        return instructorService.updateLesson(lessonId, request, getActor(authentication));
+    }
+
+    @PutMapping(value = "/lessons/{lessonId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public LessonResponse updateLessonWithFile(
+            @PathVariable UUID lessonId,
+            @RequestParam("title") String title,
+            @RequestParam("lessonType") LessonType lessonType,
+            @RequestParam("position") Integer position,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            Authentication authentication
+    ) {
+        return instructorService.updateLessonWithFile(lessonId, title, lessonType, position, file, getActor(authentication));
+    }
+
+    @DeleteMapping("/lessons/{lessonId}")
+    public ApiMessageResponse deleteLesson(
+            @PathVariable UUID lessonId,
+            Authentication authentication
+    ) {
+        instructorService.deleteLesson(lessonId, getActor(authentication));
+        return new ApiMessageResponse("Lesson deleted successfully");
+    }
+
+    @PostMapping("/courses/{courseId}/assignments")
+    public AssignmentResponse createAssignment(
+            @PathVariable UUID courseId,
+            @Valid @RequestBody CreateAssignmentRequest request,
+            Authentication authentication
+    ) {
+        return instructorService.createAssignment(courseId, request, getActor(authentication));
+    }
+
+    @GetMapping("/assignments")
+    public Page<AssignmentResponse> listAssignments(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication
+    ) {
+        return instructorService.listAssignments(getActor(authentication), PageRequest.of(page, size));
+    }
+
+    @GetMapping("/assignments/{assignmentId}")
+    public AssignmentResponse getAssignment(
+            @PathVariable UUID assignmentId,
+            Authentication authentication
+    ) {
+        return instructorService.getAssignment(assignmentId, getActor(authentication));
+    }
+
+    @DeleteMapping("/assignments/{assignmentId}")
+    public ApiMessageResponse deleteAssignment(
+            @PathVariable UUID assignmentId,
+            Authentication authentication
+    ) {
+        instructorService.deleteAssignment(assignmentId, getActor(authentication));
+        return new ApiMessageResponse("Assignment deleted successfully");
+    }
+
+    @GetMapping("/progress")
+    public Page<InstructorProgressResponse> listProgress(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication
+    ) {
+        return instructorService.listProgress(getActor(authentication), PageRequest.of(page, size));
+    }
+
+    @GetMapping("/courses/{courseId}/progress")
+    public List<LearnerProgressResponse> monitorLearnerProgress(@PathVariable UUID courseId, Authentication authentication) {
+        return instructorService.monitorLearnerProgress(courseId, getActor(authentication));
+    }
+
+    @PostMapping("/submissions/{submissionId}/feedback")
+    public AssignmentFeedbackResponse provideFeedback(
+            @PathVariable UUID submissionId,
+            @Valid @RequestBody ProvideFeedbackRequest request,
+            Authentication authentication
+    ) {
+        return instructorService.provideFeedback(submissionId, request, getActor(authentication));
+    }
+
+    private User getActor(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserDetails userDetails)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Not an authenticated user");
+        }
+        return userRepository.findByEmailIgnoreCase(userDetails.getUsername())
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+    }
+}
