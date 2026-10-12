@@ -135,9 +135,11 @@ public class OutboundEmailWorker {
                     + "Please sign in and change your password immediately.\n";
             case PASSWORD_RESET -> "Hi " + job.getRecipientName() + ",\n\n"
                     + "A password reset has been initiated for your Talent Flow account.\n"
-                    + "Use this link to set a new password:\n"
-                    + nullSafe(job.getLink()) + "\n\n"
-                    + "If you did not request this, contact an administrator immediately.\n";
+                    + (job.getPin() == null
+                    ? "Use this link to set a new password:\n" + nullSafe(job.getLink())
+                    : "Your password reset PIN is: " + job.getPin()
+                            + "\nThis PIN expires soon and can only be used once.")
+                    + "\n\nIf you did not request this, you can ignore this message.\n";
         };
     }
 

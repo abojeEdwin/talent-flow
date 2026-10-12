@@ -32,6 +32,11 @@ public class AuthMailServiceImpl implements AuthMailService {
         enqueue(EmailJobType.PASSWORD_RESET, recipientEmail, recipientName, resetLink, null, null);
     }
 
+    @Override
+    public void sendPasswordResetPinEmail(String recipientEmail, String recipientName, String pin) {
+        enqueue(EmailJobType.PASSWORD_RESET, recipientEmail, recipientName, null, null, null, pin);
+    }
+
     private void enqueue(
             EmailJobType type,
             String recipientEmail,
@@ -40,6 +45,18 @@ public class AuthMailServiceImpl implements AuthMailService {
             String temporaryPassword,
             String loginUrl
     ) {
+        enqueue(type, recipientEmail, recipientName, link, temporaryPassword, loginUrl, null);
+    }
+
+    private void enqueue(
+            EmailJobType type,
+            String recipientEmail,
+            String recipientName,
+            String link,
+            String temporaryPassword,
+            String loginUrl,
+            String pin
+    ) {
         OutboundEmailJob job = new OutboundEmailJob();
         job.setType(type);
         job.setRecipientEmail(recipientEmail);
@@ -47,6 +64,7 @@ public class AuthMailServiceImpl implements AuthMailService {
         job.setLink(link);
         job.setTemporaryPassword(temporaryPassword);
         job.setLoginUrl(loginUrl);
+        job.setPin(pin);
         job.setStatus(EmailJobStatus.PENDING);
         job.setAttempts(0);
         job.setMaxAttempts(5);

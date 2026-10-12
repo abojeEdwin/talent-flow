@@ -6,4 +6,6 @@ public interface AuthMailService {
     void sendLearnerWelcomeEmail(String recipientEmail, String recipientName, String temporaryPassword, String loginUrl);
 
     void sendPasswordResetEmail(String recipientEmail, String recipientName, String resetLink);
+
+    void sendPasswordResetPinEmail(String recipientEmail, String recipientName, String pin);
 }

@@ -6,6 +6,7 @@ import com.talentFlow.data.dto.LoginRequest;
 import com.talentFlow.data.dto.LoginResponse;
 import com.talentFlow.data.dto.RegisterRequest;
 import com.talentFlow.data.dto.RegisterResponse;
+import com.talentFlow.data.dto.PasswordResetVerificationResponse;
 import org.springframework.security.core.Authentication;
 
 public interface AuthService {
@@ -18,6 +19,10 @@ public interface AuthService {
     void logout();
 
     void resetPassword(String tokenValue, String newPassword);
+
+    void requestPasswordReset(String email);
+
+    PasswordResetVerificationResponse verifyPasswordResetPin(String email, String pin);
 
     String generatePasswordResetToken(User user);
 }

@@ -11,10 +11,12 @@ import com.talentFlow.data.dto.LoginRequest;
 import com.talentFlow.data.dto.LoginResponse;
 import com.talentFlow.data.dto.RegisterRequest;
 import com.talentFlow.data.dto.RegisterResponse;
+import com.talentFlow.data.dto.PasswordResetVerificationResponse;
 import com.talentFlow.common.security.JwtService;
 import com.talentFlow.common.exception.ApiException;
 import com.talentFlow.data.entity.Organization;
 import com.talentFlow.repository.OrganizationRepository;
+import com.talentFlow.mail.AuthMailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -30,6 +32,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.security.SecureRandom;
 
 @Service
 @RequiredArgsConstructor
@@ -41,9 +44,15 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final AuthMailService authMailService;
 
     @Value("${app.security.password-reset-expiry-hours:2}")
     private long passwordResetExpiryHours;
+
+    @Value("${app.security.password-reset-max-pin-attempts:5}")
+    private int passwordResetMaxPinAttempts;
+
+    private final SecureRandom secureRandom = new SecureRandom();
 
     @Override
     public RegisterResponse register(RegisterRequest request) {
@@ -148,6 +157,9 @@ public class AuthServiceImpl implements AuthService {
         if (token.getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Reset token has expired");
         }
+        if (token.getPinHash() != null && token.getVerifiedAt() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Reset PIN has not been verified");
+        }
 
         User user = token.getUser();
         user.setPasswordHash(passwordEncoder.encode(newPassword));
@@ -157,6 +169,61 @@ public class AuthServiceImpl implements AuthService {
         token.setUsedAt(LocalDateTime.now());
         userRepository.save(user);
         passwordResetTokenRepository.save(token);
+    }
+
+    @Override
+    public void requestPasswordReset(String email) {
+        String normalizedEmail = email.trim().toLowerCase();
+        userRepository.findByEmailIgnoreCase(normalizedEmail)
+                .filter(user -> user.getStatus() == UserStatus.ACTIVE)
+                .ifPresent(user -> {
+                    passwordResetTokenRepository.deleteByUser(user);
+
+                    String pin = String.format("%06d", secureRandom.nextInt(1_000_000));
+                    PasswordResetToken resetToken = new PasswordResetToken();
+                    resetToken.setUser(user);
+                    resetToken.setToken(UUID.randomUUID().toString());
+                    resetToken.setPinHash(passwordEncoder.encode(pin));
+                    resetToken.setPinAttempts(0);
+                    resetToken.setExpiresAt(LocalDateTime.now().plusHours(passwordResetExpiryHours));
+                    passwordResetTokenRepository.save(resetToken);
+
+                    authMailService.sendPasswordResetPinEmail(user.getEmail(), user.getFirstName(), pin);
+                });
+    }
+
+    @Override
+    public PasswordResetVerificationResponse verifyPasswordResetPin(String email, String pin) {
+        String normalizedEmail = email.trim().toLowerCase();
+        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Invalid or expired reset PIN"));
+        PasswordResetToken resetToken = passwordResetTokenRepository
+                .findFirstByUserAndUsedAtIsNullOrderByCreatedAtDesc(user)
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Invalid or expired reset PIN"));
+
+        if (resetToken.getExpiresAt().isBefore(LocalDateTime.now())
+                || resetToken.getPinHash() == null
+                || resetToken.getVerifiedAt() != null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid or expired reset PIN");
+        }
+
+        int attempts = resetToken.getPinAttempts() == null ? 0 : resetToken.getPinAttempts();
+        if (attempts >= passwordResetMaxPinAttempts) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Too many invalid reset PIN attempts");
+        }
+        if (!passwordEncoder.matches(pin, resetToken.getPinHash())) {
+            resetToken.setPinAttempts(attempts + 1);
+            passwordResetTokenRepository.save(resetToken);
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid or expired reset PIN");
+        }
+
+        resetToken.setVerifiedAt(LocalDateTime.now());
+        resetToken.setToken(UUID.randomUUID().toString());
+        passwordResetTokenRepository.save(resetToken);
+        return new PasswordResetVerificationResponse(
+                resetToken.getToken(),
+                "PIN verified. You may now set a new password."
+        );
     }
 
     @Override

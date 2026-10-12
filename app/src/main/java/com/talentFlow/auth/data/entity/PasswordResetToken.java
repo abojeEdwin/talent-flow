@@ -20,7 +20,13 @@ public class PasswordResetToken extends BaseEntity {
     @Indexed(unique = true)
     private String token;
 
+    private String pinHash;
+
+    private Integer pinAttempts;
+
     private LocalDateTime expiresAt;
+
+    private LocalDateTime verifiedAt;
 
     private LocalDateTime usedAt;
 }

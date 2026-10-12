@@ -7,6 +7,9 @@ import com.talentFlow.data.dto.LoginResponse;
 import com.talentFlow.data.dto.RegisterRequest;
 import com.talentFlow.data.dto.RegisterResponse;
 import com.talentFlow.data.dto.ResetPasswordRequest;
+import com.talentFlow.data.dto.ForgotPasswordRequest;
+import com.talentFlow.data.dto.VerifyPasswordResetPinRequest;
+import com.talentFlow.data.dto.PasswordResetVerificationResponse;
 import com.talentFlow.common.response.ApiMessageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -51,5 +54,20 @@ public class AuthController {
     public ResponseEntity<ApiMessageResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request.token(), request.newPassword());
         return ResponseEntity.ok(new ApiMessageResponse("Password reset successfully"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiMessageResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.requestPasswordReset(request.email());
+        return ResponseEntity.ok(new ApiMessageResponse(
+                "If an account exists for that email, a password reset PIN has been sent."
+        ));
+    }
+
+    @PostMapping("/verify-password-reset-pin")
+    public ResponseEntity<PasswordResetVerificationResponse> verifyPasswordResetPin(
+            @Valid @RequestBody VerifyPasswordResetPinRequest request
+    ) {
+        return ResponseEntity.ok(authService.verifyPasswordResetPin(request.email(), request.pin()));
     }
 }

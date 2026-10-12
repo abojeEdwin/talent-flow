@@ -24,6 +24,8 @@ public class OutboundEmailJob extends BaseEntity {
 
     private String loginUrl;
 
+    private String pin;
+
     private EmailJobStatus status;
 
     private Integer attempts;

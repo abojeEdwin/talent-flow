@@ -52,6 +52,7 @@ app:
     jwt-secret: ${JWT_SECRET}
     jwt-expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
     password-reset-expiry-hours: 2
+    password-reset-max-pin-attempts: ${PASSWORD_RESET_MAX_PIN_ATTEMPTS:5}
     password-reset-frontend-url: ${PASSWORD_RESET_FRONTEND_URL}
     login-url: ${LOGIN_URL}
   seed:
