@@ -129,7 +129,7 @@ public class OutboundEmailWorker {
                     + "Login URL: " + nullSafe(job.getLoginUrl()) + "\n\n"
                     + "Please sign in and change your password immediately.\n";
             case LEARNER_WELCOME -> "Hi " + job.getRecipientName() + ",\n\n"
-                    + "You have been onboarded to your organization on Talent Flow.\n"
+                    + "You have been onboarded as a Learner on Talent Flow.\n"
                     + "Temporary password: " + nullSafe(job.getTemporaryPassword()) + "\n"
                     + "Login URL: " + nullSafe(job.getLoginUrl()) + "\n\n"
                     + "Please sign in and change your password immediately.\n";
